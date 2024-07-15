@@ -16,8 +16,8 @@ class WorkZone:
             {
                 "segment_id": segment_id,
                 "vehicle_impact": veh_impact,
-                "geometry": segment_info["geometry"],
-                "feature_data": segment_info["properties"],
+                "geometry": segment_info["the_geom"],
+                "feature_data": segment_info,
                 "direction": direction,
             }
         )
@@ -31,7 +31,7 @@ class WorkZone:
             core_details = {
                 "event_type": "work-zone",
                 "data_source_id": self.data_source_id,
-                "road_names": [segment["feature_data"]["FULL_STREET_NAME"]],
+                "road_names": [segment["feature_data"]["full_street_name"]],
                 "direction": "unknown",
                 "description": self.description,
             }

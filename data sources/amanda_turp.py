@@ -1,15 +1,18 @@
 import pandas as pd
 import datetime
-import requests
-from urllib.parse import urlencode
 import uuid
 import pytz
+from sodapy import Socrata
 
 import json
+import os
 
 from amanda import get_amanda_data
 from config import turp_query
 from workzone import WorkZone
+
+# Socrata app token
+SO_TOKEN = os.getenv("SO_TOKEN")
 
 
 def get_start_end_date(row):
@@ -28,30 +31,18 @@ def chunk_list(input_list, chunk_size=25):
 
 
 def get_geometry(segment_ids):
-    chunks = chunk_list(segment_ids)
-    base_url = (
-        "https://services.arcgis.com/0L95CJ0VTaxqcmED/arcgis/rest/services/TRANSPORTATION_street_segment"
-        "/FeatureServer/0/query"
+    segment_ids = ", ".join(map(str, segment_ids))
+    client = Socrata("data.austintexas.gov", app_token=SO_TOKEN)
+    segments = client.get(
+        "8hf2-pdmb", where=f"segment_id in ({segment_ids})", limit=999999
     )
-    responses = []
-    for c in chunks:
-        segments = ",".join(c)
-        params = {
-            "where": f"SEGMENT_ID IN({segments})",
-            "f": "pgeojson",
-            "outFields": "*",
-        }
 
-        full_url = f"{base_url}?{urlencode(params)}"
-        response = requests.get(full_url)
-        try:
-            data = response.json()
-        except requests.exceptions.JSONDecodeError as json_err:
-            print("JSON decode error:", json_err)
-            print(response.text)
-            print(c)
-        responses += data["features"]
-    return responses
+    # socrata stores all segments as MultilineStrings, when they're sinlge LineStrings
+    for s in segments:
+        if s["the_geom"]["type"] == "MultiLineString":
+            s["the_geom"]["type"] = "LineString"
+            s["the_geom"]["coordinates"] = s["the_geom"]["coordinates"][0]
+    return segments
 
 
 def create_feed_info(amanda_id, current_time):
@@ -87,19 +78,13 @@ def main():
     # df = pd.read_csv("closure_data_v2.csv")
 
     df = df.apply(get_start_end_date, axis=1)
-    segments = (
-        df[
-            df["CLOSURE_TYPE"].isin(
-                ["Closure : Full Road", "Traffic Lane : Dimensions"]
-            )
-        ]["SEGMENT_ID"]
-        .astype(str)
-        .unique()
-    )
+    segments = df[
+        df["CLOSURE_TYPE"].isin(["Closure : Full Road", "Traffic Lane : Dimensions"])
+    ]["SEGMENT_ID"].unique()
     segment_info = get_geometry(segments)
     segment_lookup = {}
     for s in segment_info:
-        segment_lookup[int(s["properties"]["SEGMENT_ID"])] = s
+        segment_lookup[int(s["segment_id"])] = s
 
     amanda_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "COA_AMANDA_TURP"))
 
