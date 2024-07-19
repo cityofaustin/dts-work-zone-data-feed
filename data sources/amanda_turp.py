@@ -87,6 +87,7 @@ def main():
         segment_lookup[int(s["segment_id"])] = s
 
     amanda_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "COA_AMANDA_TURP"))
+    description = "Austin Right of Way Permit has been issued for this location."
 
     central_time_zone = pytz.timezone("US/Central")
     current_time = datetime.datetime.now(central_time_zone)
@@ -110,7 +111,7 @@ def main():
             wz = WorkZone(
                 data_source_id=amanda_id,
                 folderrsn=p,
-                description=closures["FOLDERDESCRIPTION"].iloc[0],
+                description=description,
                 start_date=start_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
                 end_date=end_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
             )

@@ -36,7 +36,12 @@ FROM folder f
                                          CASE
                                              WHEN INFOCODE = 75994 THEN
                                                  INFOVALUEDATETIME
-                                             END) AS extension_end_date
+                                             END) AS extension_end_date,
+                                 MAX(
+                                         CASE
+                                             WHEN INFOCODE = 72101 THEN
+                                                 INFOVALUE
+                                             END) AS secondary_permit
                           FROM FOLDERINFO
                           GROUP BY FOLDERRSN) fi ON f.FOLDERRSN = fi.FOLDERRSN
          LEFT OUTER JOIN (SELECT FOLDERRSN,
@@ -56,4 +61,5 @@ WHERE f.FOLDERTYPE = 'RW'
   AND f.STATUSCODE = 50010                           -- active permits
   AND f.INDATE > TO_DATE('2017-12-31', 'yyyy-mm-dd') -- this filters out old 'LA' permits
   AND ff.segment_id IS NOT NULL
+  AND fi.secondary_permit = 'No'
 """
