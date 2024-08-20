@@ -79,7 +79,7 @@ def main():
 
     df = df.apply(get_start_end_date, axis=1)
     segments = df[
-        df["CLOSURE_TYPE"].isin(["Closure : Full Road", "Traffic Lane : Dimensions"])
+        df["CLOSURE_TYPE"].isin(["Closure : Full Road", "Traffic Lane : Dimensions", "Open Cuts : Street"])
     ]["SEGMENT_ID"].unique()
     segment_info = get_geometry(segments)
     segment_lookup = {}
@@ -122,7 +122,7 @@ def main():
                         wz.add_closure(s, "all-lanes-closed", segment_lookup[s])
                     else:
                         print(f"{s} not found in street segments feature layer")
-                elif "Traffic Lane : Dimensions" in list(seg["CLOSURE_TYPE"]):
+                elif "Traffic Lane : Dimensions" in list(seg["CLOSURE_TYPE"]) or  "Open Cuts : Street" in list(seg["CLOSURE_TYPE"]):
                     if s in segment_lookup:
                         wz.add_closure(s, "some-lanes-closed", segment_lookup[s])
                     else:
