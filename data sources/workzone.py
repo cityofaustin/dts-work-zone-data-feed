@@ -26,10 +26,10 @@ class WorkZone:
 
     def generate_closure_id(self, segment_id):
         return str(
-                    uuid.uuid5(
-                        uuid.NAMESPACE_OID, f"{self.start_date}-{self.end_date}-{segment_id}"
-                    )
-                )
+            uuid.uuid5(
+                uuid.NAMESPACE_OID, f"{self.start_date}-{self.end_date}-{segment_id}"
+            )
+        )
 
     def generate_json(self):
         data = []
@@ -69,27 +69,26 @@ class AmandaWorkZone(WorkZone):
         self.folderrsn = folderrsn
 
     def generate_closure_id(self, segment_id):
-        return str(
-            uuid.uuid5(
-                uuid.NAMESPACE_OID, f"{self.folderrsn}-{segment_id}"
-            )
-        )
+        return str(uuid.uuid5(uuid.NAMESPACE_OID, f"{self.folderrsn}-{segment_id}"))
 
-    def generate_agol_export(self):
+    def generate_socrata_export(self):
         """
-        Generates flattened dictonary for AGOL to help with debugging
+        Generates flattened export for Socrata to help with debugging
         :return:
         """
         data = []
         for segment in self.segments:
             properties = {
+                "id": self.generate_closure_id(segment["segment_id"]),
+                "type": "Feature",
+                "geometry": segment["geometry"],
                 "event_type": "work-zone",
                 "data_source_id": self.data_source_id,
-                "road_names": [segment["feature_data"]["full_street_name"]],
+                "road_names": segment["feature_data"]["full_street_name"],
                 "direction": "unknown",
                 "description": self.description,
-                "start_date": self.start_date,  # need to be careful about formatting these
-                "end_date": self.end_date,  # need to require start/end dates,
+                "start_date": self.start_date,
+                "end_date": self.end_date,
                 "is_start_date_verified": False,
                 "is_end_date_verified": False,
                 "is_start_position_verified": False,
@@ -99,11 +98,5 @@ class AmandaWorkZone(WorkZone):
                 "vehicle_impact": segment["vehicle_impact"],
                 "folderrsn": str(self.folderrsn),
             }
-            event_object = {
-                "id": self.generate_closure_id(segment["segment_id"]),
-                "type": "Feature",
-                "properties": properties,
-                "geometry": segment["geometry"],
-            }
-            data.append(event_object)
+            data.append(properties)
         return data
