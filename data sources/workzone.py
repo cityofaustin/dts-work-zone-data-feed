@@ -3,6 +3,7 @@ from shapely.ops import linemerge
 import geopandas as gpd
 from shapely.geometry import shape, mapping
 
+
 class WorkZone:
     def __init__(self, data_source_id, name, description, start_date, end_date):
         self.data_source_id = data_source_id
@@ -56,8 +57,7 @@ class WorkZone:
                 for place in places:
                     place_df = segment_df[segment_df["vehicle_impact"] == type]
                     place_df = place_df[place_df["street_place_id"] == place]
-                    if len(place_df) > 1:   # We need more than 1 segment to reduce
-
+                    if len(place_df) > 1:  # We need more than 1 segment to reduce
                         # Attempt to merge the list of line geometries.
                         merged_segments = linemerge(list(place_df["geometry"]))
 
@@ -69,16 +69,14 @@ class WorkZone:
 
                         # If a multiline is returned, we failed to combine as the segments are likely disjointed
                         elif merged_segments.geom_type == "MultiLineString":
-                            reduced_segments += place_df.to_dict('records')
+                            reduced_segments += place_df.to_dict("records")
                     else:
-                        reduced_segments += place_df.to_dict('records')
+                        reduced_segments += place_df.to_dict("records")
 
             # Converting from WKT back to geojson
             for segment in reduced_segments:
                 segment["geometry"] = mapping(segment["geometry"])
             self.segments = reduced_segments
-
-
 
     def generate_json(self):
         data = []
@@ -114,7 +112,9 @@ class WorkZone:
 
 
 class AmandaWorkZone(WorkZone):
-    def __init__(self, data_source_id, name, description, start_date, end_date, folderrsn):
+    def __init__(
+        self, data_source_id, name, description, start_date, end_date, folderrsn
+    ):
         super().__init__(data_source_id, name, description, start_date, end_date)
         self.folderrsn = folderrsn
 

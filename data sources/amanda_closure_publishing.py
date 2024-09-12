@@ -1,19 +1,21 @@
-import pandas as pd
 import datetime
-import uuid
+import logging
+import pandas as pd
 import pytz
+import uuid
 from sodapy import Socrata
 
-import io
 import json
 import os
 
 from amanda import get_amanda_data
 from config import turp_query, excavation_permits
+import utils
 from workzone import AmandaWorkZone
 
 # Socrata app token
 SO_TOKEN = os.getenv("SO_TOKEN")
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL")
 
 # Optional: Socrata credentials for publishing to a dataset
 SO_WEB = os.getenv("SO_WEB")
@@ -52,27 +54,37 @@ def get_geometry(segment_ids):
     return segments
 
 
-def create_feed_info(data_source_id, current_time):
+def create_feed_info(turp_id, ex_id, current_time):
     feed_info = {
         "publisher": "City of Austin",
         "version": "4.2",
         "license": "https://creativecommons.org/publicdomain/zero/1.0/",
         "data_sources": [
             {
-                "data_source_id": data_source_id,
-                "organization_name": "City of Austin",
+                "data_source_id": turp_id,
+                "organization_name": "City of Austin: AMANDA Right of Way Permits",
                 "update_date": current_time.astimezone(pytz.utc).strftime(
                     "%Y-%m-%dT%H:%M:%SZ"
                 ),
-                "update_frequency": 3600,  # assuming 1 hr refresh rate
+                "update_frequency": 3600,
                 "contact_name": "Transportation and Public Works Department",
-                "contact_email": "transportation.data@austintexas.gov",
-            }
+                "contact_email": CONTACT_EMAIL,
+            },
+            {
+                "data_source_id": ex_id,
+                "organization_name": "City of Austin: AMANDA Excavation Permits",
+                "update_date": current_time.astimezone(pytz.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
+                "update_frequency": 3600,
+                "contact_name": "Transportation and Public Works Department",
+                "contact_email": CONTACT_EMAIL,
+            },
         ],
         "update_date": current_time.astimezone(pytz.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "update_frequency": 3600,  # assuming 1 hr refresh rate
         "contact_name": "Transportation and Public Works Department",
-        "contact_email": "transportation.data@austintexas.gov",
+        "contact_email": CONTACT_EMAIL,
     }
 
     return feed_info
@@ -82,8 +94,10 @@ def main():
     # Getting AMANDA data
     data = get_amanda_data(turp_query)
     df = pd.DataFrame(data)
+    logger.info(f"Downloaded {len(df['FOLDERRSN'].unique())} TURP permits")
     data = get_amanda_data(excavation_permits)
     df = pd.concat([df, pd.DataFrame(data)])
+    logger.info(f"Downloaded {len(df['FOLDERRSN'].unique())} EX permits")
 
     df = df.apply(get_start_end_date, axis=1)
     segments = df[
@@ -145,7 +159,7 @@ def main():
                     if s in segment_lookup:
                         wz.add_closure(s, "all-lanes-closed", segment_lookup[s])
                     else:
-                        print(
+                        logger.info(
                             f"{s} not found in street segments feature layer under folderrsn {p}"
                         )
                 elif "Traffic Lane : Dimensions" in list(
@@ -154,13 +168,13 @@ def main():
                     if s in segment_lookup:
                         wz.add_closure(s, "some-lanes-closed", segment_lookup[s])
                     else:
-                        print(
+                        logger.info(
                             f"{s} not found in street segments feature layer under folderrsn {p}"
                         )
             if wz.get_number_of_closures() > 0:
                 work_zones.append(wz)
 
-    feed_info = create_feed_info(amanda_turp_id, current_time)
+    feed_info = create_feed_info(amanda_turp_id, amanda_ex_id, current_time)
 
     features = []
     for wz in work_zones:
@@ -173,6 +187,7 @@ def main():
         json.dump(output, f, ensure_ascii=False)
 
     if SO_USER and SO_PASS:
+        logger.info("Uploading data to Socrata")
         # logging in with sodapy
         soda = Socrata(
             SO_WEB,
@@ -185,18 +200,21 @@ def main():
         with open("wzdx_atx.geojson", "rb") as f:
             files = {"file": ("wzdx_atx.geojson", f)}
             response = soda.replace_non_data_file(FEED_DATASET, {}, files)
+        logger.info(response)
 
         # for flat exporting to socrata:
         features = []
         for wz in work_zones:
             features += wz.generate_socrata_export()
 
-        soda.replace(FLAT_DATASET, features)
-        # pd.DataFrame(features).to_csv("socrata.csv", index=False)
-        #
-        # with open("agol_export.geojson", "w") as f:
-        #     json.dump(features, f, ensure_ascii=False)
+        response = soda.replace(FLAT_DATASET, features)
+        logger.info(response)
 
 
 if __name__ == "__main__":
+    logger = utils.get_logger(
+        __name__,
+        level=logging.INFO,
+    )
+
     main()
