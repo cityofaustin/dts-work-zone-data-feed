@@ -164,6 +164,7 @@ def main():
 
     features = []
     for wz in work_zones:
+        wz.reduce_closure_geometry()
         features += wz.generate_json()
 
     output = {"feed_info": feed_info, "type": "FeatureCollection", "features": features}
