@@ -2,8 +2,9 @@ import uuid
 
 
 class WorkZone:
-    def __init__(self, data_source_id, description, start_date, end_date):
+    def __init__(self, data_source_id, name, description, start_date, end_date):
         self.data_source_id = data_source_id
+        self.name = name
         self.start_date = start_date
         self.end_date = end_date
         self.description = description
@@ -35,6 +36,7 @@ class WorkZone:
         data = []
         for segment in self.segments:
             core_details = {
+                "name": self.name,
                 "event_type": "work-zone",
                 "data_source_id": self.data_source_id,
                 "road_names": [segment["feature_data"]["full_street_name"]],
@@ -64,8 +66,8 @@ class WorkZone:
 
 
 class AmandaWorkZone(WorkZone):
-    def __init__(self, data_source_id, description, start_date, end_date, folderrsn):
-        super().__init__(data_source_id, description, start_date, end_date)
+    def __init__(self, data_source_id, name, description, start_date, end_date, folderrsn):
+        super().__init__(data_source_id, name, description, start_date, end_date)
         self.folderrsn = folderrsn
 
     def generate_closure_id(self, segment_id):
@@ -80,6 +82,7 @@ class AmandaWorkZone(WorkZone):
         for segment in self.segments:
             properties = {
                 "id": self.generate_closure_id(segment["segment_id"]),
+                "name": self.name,
                 "type": "Feature",
                 "geometry": segment["geometry"],
                 "event_type": "work-zone",

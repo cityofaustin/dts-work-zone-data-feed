@@ -113,13 +113,14 @@ def main():
     permits = df["FOLDERRSN"].unique()
     for p in permits:
         closures = df[df["FOLDERRSN"] == p]
-
         permit_type = closures["FOLDERTYPE"].iloc[0]
+        folderdesc = closures["FOLDERDESCRIPTION"].iloc[0]
+        foldername = closures["FOLDERNAME"].iloc[0]
         if permit_type == "RW":
-            description = "Temporary use of Right of Way Permit has been issued for this location."
+            description = f"Temporary use of Right of Way Permit has been issued for this location. \n Details: {folderdesc}"
             data_source_id = amanda_turp_id
         elif permit_type == "EX":
-            description = "Excavation Permit has been issued for this location."
+            description = f"Excavation Permit has been issued for this location. \n Details: {folderdesc}"
             data_source_id = amanda_ex_id
 
         segments = closures["SEGMENT_ID"].unique()
@@ -132,6 +133,7 @@ def main():
         if end_date + datetime.timedelta(hours=1) > current_time:
             wz = AmandaWorkZone(
                 data_source_id=data_source_id,
+                name=foldername,
                 folderrsn=p,
                 description=description,
                 start_date=start_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
