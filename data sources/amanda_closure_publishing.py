@@ -130,11 +130,25 @@ def main():
         permit_type = closures["FOLDERTYPE"].iloc[0]
         folderdesc = closures["FOLDERDESCRIPTION"].iloc[0]
         foldername = closures["FOLDERNAME"].iloc[0]
+        subtype = closures["SUBCODE"].iloc[0]
+        workcode = closures["WORKCODE"].iloc[0]
         if permit_type == "RW":
-            description = f"Temporary use of Right of Way Permit has been issued for this location. \n Details: {folderdesc}"
+            # Filtering out details from franchise utilities.
+            if subtype == 50500 and workcode in (50570, 50575, 50580):
+                description = f"Temporary use of Right of Way Permit has been issued for this location."
+                name = "WorkZone Event"
+            else:
+                description = f"Temporary use of Right of Way Permit has been issued for this location. \n Details: {folderdesc}"
+                name = foldername
             data_source_id = amanda_turp_id
         elif permit_type == "EX":
-            description = f"Excavation Permit has been issued for this location. \n Details: {folderdesc}"
+            if subtype == 50685:
+                description = f"Excavation Permit has been issued for this location."
+                name = "WorkZone Event"
+            else:
+                description = f"Excavation Permit has been issued for this location. \n Details: {folderdesc}"
+                name = foldername
+
             data_source_id = amanda_ex_id
 
         segments = closures["SEGMENT_ID"].unique()
@@ -147,7 +161,7 @@ def main():
         if end_date + datetime.timedelta(hours=1) > current_time:
             wz = AmandaWorkZone(
                 data_source_id=data_source_id,
-                name=foldername,
+                name=name,
                 folderrsn=p,
                 description=description,
                 start_date=start_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),

@@ -1,6 +1,8 @@
 turp_query = """
     SELECT f.FOLDERRSN,
            f.FOLDERTYPE,
+           f.SUBCODE,
+           f.WORKCODE,
            f.FOLDERNAME,
            f.INDATE,
            f.ISSUEDATE,
@@ -77,6 +79,8 @@ turp_query = """
 excavation_permits = """
     SELECT f.FOLDERRSN,
            f.FOLDERTYPE,
+           f.SUBCODE,
+           f.WORKCODE,
            f.FOLDERNAME,
            f.INDATE,
            f.ISSUEDATE,
