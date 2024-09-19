@@ -1,0 +1,7 @@
+pandas==2.1.*
+pyproj
+geopandas==0.14.*
+shapely==2.0.*
+sodapy==2.1.*
+oracledb==2.1.*
+pytz==2024.*

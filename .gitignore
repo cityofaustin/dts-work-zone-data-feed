@@ -1,4 +1,7 @@
-
 /.idea
 .DS_Store
 *.pyc
+*.csv
+*.geojson
+env_file
+.env

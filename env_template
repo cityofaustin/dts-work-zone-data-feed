@@ -1,0 +1,17 @@
+# AMANDA Oracle read replica DB
+DB_PASS=
+DB_USER=
+HOST=
+PORT=
+SERVICE_NAME=
+
+# Socrata
+FEED_DATASET=
+FLAT_DATASET=
+SO_PASS=
+SO_TOKEN=
+SO_USER=
+SO_WEB=datahub.austintexas.gov
+
+# Service desk email for the datafeed
+CONTACT_EMAIL=
