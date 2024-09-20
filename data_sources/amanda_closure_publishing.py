@@ -197,9 +197,6 @@ def main():
 
     output = {"feed_info": feed_info, "type": "FeatureCollection", "features": features}
 
-    with open("wzdx_atx.geojson", "w") as f:
-        json.dump(output, f, ensure_ascii=False)
-
     if SO_USER and SO_PASS:
         logger.info("Uploading data to Socrata")
         # logging in with sodapy
@@ -211,9 +208,8 @@ def main():
             timeout=500,
         )
 
-        with open("wzdx_atx.geojson", "rb") as f:
-            files = {"file": ("wzdx_atx.geojson", f)}
-            response = soda.replace_non_data_file(FEED_DATASET, {}, files)
+        files = {"file": ("wzdx_atx.geojson", json.dumps(output))}
+        response = soda.replace_non_data_file(FEED_DATASET, {}, files)
         logger.info(response)
 
         # for flat exporting to socrata:
