@@ -59,6 +59,10 @@ def create_feed_info(turp_id, ex_id, current_time):
         "publisher": "City of Austin",
         "version": "4.2",
         "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "update_date": current_time.astimezone(pytz.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        ),
+        "update_frequency": 3600,
         "data_sources": [
             {
                 "data_source_id": turp_id,
