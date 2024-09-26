@@ -9,8 +9,8 @@ import json
 import os
 
 from amanda import get_amanda_data
-from config import turp_query, excavation_permits
-import utils
+from config import amanda_closure_mapping, turp_query, excavation_permits
+from utils import get_logger
 from workzone import AmandaWorkZone
 
 # Socrata app token
@@ -59,9 +59,7 @@ def create_feed_info(turp_id, ex_id, current_time):
         "publisher": "City of Austin",
         "version": "4.2",
         "license": "https://creativecommons.org/publicdomain/zero/1.0/",
-        "update_date": current_time.astimezone(pytz.utc).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        ),
+        "update_date": current_time.astimezone(pytz.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "update_frequency": 3600,
         "data_sources": [
             {
@@ -96,46 +94,66 @@ def create_feed_info(turp_id, ex_id, current_time):
 
 def main():
     # Getting AMANDA data
+    # Temporary Use of Right of Way (TURP) permits:
+    logger.info(f"Querying AMANDA for TURP permits")
     data = get_amanda_data(turp_query)
-    df = pd.DataFrame(data)
-    logger.info(f"Downloaded {len(df['FOLDERRSN'].unique())} TURP permits")
-    data = get_amanda_data(excavation_permits)
-    df = pd.concat([df, pd.DataFrame(data)])
-    logger.info(f"Downloaded {len(df['FOLDERRSN'].unique())} EX permits")
+    closures = pd.DataFrame(data)
+    logger.info(f"Downloaded {len(closures['FOLDERRSN'].unique())} TURP permits")
 
-    df = df.apply(get_start_end_date, axis=1)
-    segments = df[
-        df["CLOSURE_TYPE"].isin(
+    # Excavation (EX) permits:
+    logger.info(f"Querying AMANDA for EX permits")
+    data = get_amanda_data(excavation_permits)
+    closures = pd.concat([closures, pd.DataFrame(data)])
+    logger.info(f"Downloaded {len(closures['FOLDERRSN'].unique())} EX permits")
+
+    # Getting the list of unique street segments present in our data
+    segments = closures[
+        closures["CLOSURE_TYPE"].isin(
             ["Closure : Full Road", "Traffic Lane : Dimensions", "Open Cuts : Street"]
         )
     ]["SEGMENT_ID"].unique()
+    logger.info(f"Retrieving CTM street segments from Socrata")
     segment_info = get_geometry(segments)
     segment_lookup = {}
 
-    # Generating a dictionary of street segment IDs
-    for s in segment_info:
-        segment_lookup[int(s["segment_id"])] = s
+    # Generating a lookup dict of street segment IDs for later
+    for segment_id in segment_info:
+        segment_lookup[int(segment_id["segment_id"])] = segment_id
 
     # Generating UUIDs data sources
     amanda_turp_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "COA_AMANDA_TURP"))
     amanda_ex_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "COA_AMANDA_EX"))
 
+    # Creating start/end date including logic for extensions
+    closures = closures.apply(get_start_end_date, axis=1)
     central_time_zone = pytz.timezone("US/Central")
     current_time = datetime.datetime.now(central_time_zone)
-    df["START_DATE"] = pd.to_datetime(df["START_DATE"]).dt.tz_localize(
+    closures["start_date_dt"] = pd.to_datetime(closures["START_DATE"]).dt.tz_localize(
         central_time_zone
     )
-    df["END_DATE"] = pd.to_datetime(df["END_DATE"]).dt.tz_localize(central_time_zone)
+    closures["end_date_dt"] = pd.to_datetime(closures["END_DATE"]).dt.tz_localize(
+        central_time_zone
+    )
 
     work_zones = []
-    permits = df["FOLDERRSN"].unique()
-    for p in permits:
-        closures = df[df["FOLDERRSN"] == p]
-        permit_type = closures["FOLDERTYPE"].iloc[0]
-        folderdesc = closures["FOLDERDESCRIPTION"].iloc[0]
-        foldername = closures["FOLDERNAME"].iloc[0]
-        subtype = closures["SUBCODE"].iloc[0]
-        workcode = closures["WORKCODE"].iloc[0]
+
+    # Iterating by permit number, our dataframe contains multiple closures per permit ID.
+    permit_ids = closures["FOLDERRSN"].unique()
+    for permit_id in permit_ids:
+        # Filtering our closures dataframe to only the ones associated with the selected permit
+        permit_closures = closures[closures["FOLDERRSN"] == permit_id]
+
+        # Gathering permit metadata from the first row of our closures dataframe.
+        # This is a consequence of how we've retrieved the data from AMANDA
+        permit_type = permit_closures["FOLDERTYPE"].iloc[0]
+        folderdesc = permit_closures["FOLDERDESCRIPTION"].iloc[0]
+        foldername = permit_closures["FOLDERNAME"].iloc[0]
+        subtype = permit_closures["SUBCODE"].iloc[0]
+        workcode = permit_closures["WORKCODE"].iloc[0]
+        start_date = permit_closures["start_date_dt"].iloc[0]
+        end_date = permit_closures["end_date_dt"].iloc[0]
+
+        # Naming and description logic
         if permit_type == "RW":
             # Filtering out details from franchise utilities.
             if subtype == 50500 and workcode in (50570, 50575, 50580):
@@ -146,6 +164,7 @@ def main():
                 name = foldername
             data_source_id = amanda_turp_id
         elif permit_type == "EX":
+            # Filtering out details from franchise utilities.
             if subtype == 50685:
                 description = f"Excavation Permit has been issued for this location."
                 name = "WorkZone Event"
@@ -155,52 +174,56 @@ def main():
 
             data_source_id = amanda_ex_id
 
-        segments = closures["SEGMENT_ID"].unique()
+        # Gathering the list of unique segment IDs for iterating on below.
+        segments = permit_closures["SEGMENT_ID"].unique()
 
-        start_date = closures["START_DATE"].iloc[0]
-        end_date = closures["END_DATE"].iloc[0]
-
-        # checking if the closure is some time in the future.
-        # adding one hour to the end time to help inform consumers that the work zone has officially ended.
+        # Checking if the closure is some time in the future, if it's not we do not publish it to the feed.
+        # Adding one hour to the end time to help inform consumers that the work zone has officially ended.
         if end_date + datetime.timedelta(hours=1) > current_time:
             wz = AmandaWorkZone(
                 data_source_id=data_source_id,
                 name=name,
-                folderrsn=p,
+                folderrsn=permit_id,
                 description=description,
                 start_date=start_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
                 end_date=end_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
             )
-            for s in segments:
-                seg = closures[closures["SEGMENT_ID"] == s]
-                if "Closure : Full Road" in list(seg["CLOSURE_TYPE"]):
-                    if s in segment_lookup:
-                        wz.add_closure(s, "all-lanes-closed", segment_lookup[s])
-                    else:
-                        logger.info(
-                            f"{s} not found in street segments feature layer under folderrsn {p}"
-                        )
-                elif "Traffic Lane : Dimensions" in list(
-                    seg["CLOSURE_TYPE"]
-                ) or "Open Cuts : Street" in list(seg["CLOSURE_TYPE"]):
-                    if s in segment_lookup:
-                        wz.add_closure(s, "some-lanes-closed", segment_lookup[s])
-                    else:
-                        logger.info(
-                            f"{s} not found in street segments feature layer under folderrsn {p}"
-                        )
+            # Closure type logic
+            # This is how we convert AMANDA road closures into workzone closure types
+            for segment_id in segments:
+                # Filtering to the closure types that have been applied to this one segment ID
+                seg = permit_closures[permit_closures["SEGMENT_ID"] == segment_id]
+                for closure_type in amanda_closure_mapping:
+                    if closure_type["amanda_closure"] in list(seg["CLOSURE_TYPE"]):
+                        if segment_id in segment_lookup:
+                            wz.add_closure(
+                                segment_id,
+                                veh_impact=closure_type["vehicle_impact"],
+                                segment_info=segment_lookup[segment_id],
+                            )
+                            # If we find a closure type, we break out of the loop. This makes the order of
+                            # amanda_closure_mapping important.
+                            break
+                        else:
+                            logger.info(
+                                f"{segment_id} not found in street segments feature layer under folderrsn {permit_id}"
+                            )
             if wz.get_number_of_closures() > 0:
                 work_zones.append(wz)
 
+    # Generates a json blob of feed metadata
     feed_info = create_feed_info(amanda_turp_id, amanda_ex_id, current_time)
 
+    # generate all closure feature's json blobs
     features = []
     for wz in work_zones:
         wz.reduce_closure_geometry()
         features += wz.generate_json()
 
+    # Stitching everything together
     output = {"feed_info": feed_info, "type": "FeatureCollection", "features": features}
 
+    # Output to Socrata feed/dataset
     if SO_USER and SO_PASS:
         logger.info("Uploading data to Socrata")
         # logging in with sodapy
@@ -211,7 +234,7 @@ def main():
             password=SO_PASS,
             timeout=500,
         )
-
+        logger.info("uploading geojson file to Socrata")
         files = {"file": ("wzdx_atx.geojson", json.dumps(output))}
         response = soda.replace_non_data_file(FEED_DATASET, {}, files)
         logger.info(response)
@@ -220,13 +243,13 @@ def main():
         features = []
         for wz in work_zones:
             features += wz.generate_socrata_export()
-
+        logger.info("uploading flat dataset to Socrata")
         response = soda.replace(FLAT_DATASET, features)
         logger.info(response)
 
 
 if __name__ == "__main__":
-    logger = utils.get_logger(
+    logger = get_logger(
         __name__,
         level=logging.INFO,
     )

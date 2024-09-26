@@ -1,3 +1,35 @@
+"""
+Mapping AMANDA closure types to WZDX vehicle impact types.
+Note that this list is prioritized so the top value will be checked first and so on.
+"""
+amanda_closure_mapping = [
+    {
+        "amanda_closure": "Closure : Full Road",
+        "vehicle_impact": "all-lanes-closed",
+    },
+    {
+        "amanda_closure": "Traffic Lane : Dimensions",
+        "vehicle_impact": "some-lanes-closed",
+    },
+    {
+        "amanda_closure": "Open Cuts : Street",
+        "vehicle_impact": "some-lanes-closed",
+    },
+]
+
+"""
+Temporary use of right of way (TURP) permits query. Gets the road closure info from the freeform tab (FOLDERFREEFORM),
+along with permit details stored in FOLDERINFO and FOLDER. Ignores emergency permits, secondary permits and those
+created prior to 2018. Only retrieves active permits.
+
+Closure types:
+- 'Traffic Lane : Dimensions'
+- 'Closure : Full Road'
+- 'Closure : Alley',
+- 'Closure : Sidewalk'
+- 'Parking Lane : Dimensions'
+"""
+
 turp_query = """
     SELECT f.FOLDERRSN,
            f.FOLDERTYPE,
@@ -76,6 +108,22 @@ turp_query = """
 
 """
 
+
+"""
+Excavation permits query. Gets the road closure info from the freeform tab (FOLDERFREEFORM), along with permit details stored
+in FOLDERINFO and FOLDER. Ignores emergency permits, secondary permits and those created prior to 2018. Only retrives active
+permits.
+
+Closure types:
+- 'Traffic Lane : Dimensions'
+- 'Closure : Full Road'
+- 'Closure : Alley',
+- 'Closure : Sidewalk'
+- 'Parking Lane : Dimensions'
+- 'Open Cuts : Street' 
+
+'Open Cuts : Street' is treated as a partial road closure.
+"""
 excavation_permits = """
     SELECT f.FOLDERRSN,
            f.FOLDERTYPE,
@@ -145,9 +193,9 @@ excavation_permits = """
                                             'Closure : Sidewalk', 'Parking Lane : Dimensions', 'Open Cuts : Street') and C03 = 'Yes')
                                 ff
                              ON ff.FOLDERRSN = f.FOLDERRSN
-    WHERE f.FOLDERTYPE = 'EX'                            -- Temporary use of ROW permits (TURPs)
+    WHERE f.FOLDERTYPE = 'EX'                            -- EX permits only
       AND f.STATUSCODE = 50010                           -- active permits
-      AND f.INDATE > TO_DATE('2017-12-31', 'yyyy-mm-dd') -- this filters out old 'LA' permits
+      AND f.INDATE > TO_DATE('2017-12-31', 'yyyy-mm-dd') 
       AND ff.segment_id IS NOT NULL
       AND fi.secondary_permit = 'No'
       AND fi.emergency_permit = 'No'

@@ -5,16 +5,41 @@ from shapely.geometry import shape, mapping
 
 
 class WorkZone:
-    def __init__(self, data_source_id, name, description, start_date, end_date):
+    """
+    Base class for work zones. Maybe too many COA-specific terms here like dealing with segment geometry?
+    """
+
+    def __init__(
+        self,
+        data_source_id: str,
+        name: str,
+        description: str,
+        start_date: str,
+        end_date: str,
+    ):
+        """
+        :param data_source_id (str): UUID of the data source, also shown in the feed_info section
+        :param name (str): Name of the WorkZone
+        :param description (str): A description of the WorkZone
+        :param start_date (str): UTC start date, strftime format: %Y-%m-%dT%H:%M:%SZ
+        :param end_date (str):UTC start date, strftime format: %Y-%m-%dT%H:%M:%SZ
+        """
         self.data_source_id = data_source_id
         self.name = name
         self.start_date = start_date
         self.end_date = end_date
         self.description = description
 
+        # Starting an empty array of segments we will add to later.
         self.segments = []
 
-    def add_closure(self, segment_id, veh_impact, segment_info, direction="unknown"):
+    def __repr__(self):
+        cls = self.__class__.__name__
+        return f"{cls}:{self.name}"
+
+    def add_closure(
+        self, segment_id, veh_impact: str, segment_info, direction="unknown"
+    ):
         self.segments.append(
             {
                 "segment_id": segment_id,
@@ -30,6 +55,11 @@ class WorkZone:
         return len(self.segments)
 
     def generate_closure_id(self, segment_id):
+        """
+        Generates a UUID a given start/end date segment ID pair.
+        :param segment_id: Roadway segment ID to generate a UUID for.
+        :return:
+        """
         return str(
             uuid.uuid5(
                 uuid.NAMESPACE_OID, f"{self.start_date}-{self.end_date}-{segment_id}"
@@ -79,6 +109,10 @@ class WorkZone:
             self.segments = reduced_segments
 
     def generate_json(self):
+        """
+        Generates the JSON blob for this WorkZone according to the specification.
+        :return:
+        """
         data = []
         for segment in self.segments:
             core_details = {
@@ -91,8 +125,8 @@ class WorkZone:
             }
             properties = {
                 "core_details": core_details,
-                "start_date": self.start_date,  # need to be careful about formatting these
-                "end_date": self.end_date,  # need to require start/end dates,
+                "start_date": self.start_date,
+                "end_date": self.end_date,
                 "is_start_date_verified": False,
                 "is_end_date_verified": False,
                 "is_start_position_verified": False,
@@ -112,18 +146,41 @@ class WorkZone:
 
 
 class AmandaWorkZone(WorkZone):
+    """
+    AMANDA WorkZone which includes some additional data specific to AMANDA.
+    """
+
     def __init__(
-        self, data_source_id, name, description, start_date, end_date, folderrsn
+        self,
+        data_source_id: str,
+        name: str,
+        description: str,
+        start_date: str,
+        end_date: str,
+        folderrsn: int,
     ):
+        """
+        :param data_source_id (str): UUID of the data source, also shown in the feed_info section
+        :param name (str): Name of the WorkZone
+        :param description (str): A description of the WorkZone
+        :param start_date (str): UTC start date, strftime format: %Y-%m-%dT%H:%M:%SZ
+        :param end_date (str):UTC start date, strftime format: %Y-%m-%dT%H:%M:%SZ,
+        :param folderrsn: Unique ID of this AMANDA record.
+        """
         super().__init__(data_source_id, name, description, start_date, end_date)
         self.folderrsn = folderrsn
 
     def generate_closure_id(self, segment_id):
+        """
+        AMANDA WorkZones utilize the permit folderrsn unique ID to generate a UUID for each segment.
+        :param segment_id: Roadway segment ID to generate a UUID for.
+        :return:
+        """
         return str(uuid.uuid5(uuid.NAMESPACE_OID, f"{self.folderrsn}-{segment_id}"))
 
     def generate_socrata_export(self):
         """
-        Generates flattened export for Socrata to help with debugging
+        Generates flattened export for Socrata to help with debugging and mapping.
         :return:
         """
         data = []
