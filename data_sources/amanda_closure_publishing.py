@@ -34,24 +34,33 @@ def get_start_end_date(row):
     return row
 
 
+def batch_segments(data, batch_size=100):
+    for i in range(0, len(data), batch_size):
+        yield data[i : i + batch_size]
+
+
 def get_geometry(segment_ids):
     """
     Gets CTM segment geometry from the open data portal.
     :param segment_ids (list): a list of CTM segment IDs to fetch
     :return: the geometry of each segment
     """
-    segment_ids = ", ".join(map(str, segment_ids))
-    client = Socrata("data.austintexas.gov", app_token=SO_TOKEN)
-    segments = client.get(
-        "8hf2-pdmb", where=f"segment_id in ({segment_ids})", limit=999999
-    )
+    # Batching our list of segments into groups of 100. This is to avoid potentially sending too large of a request.
+    segment_batches = batch_segments(segment_ids)
+    segment_data = []
+    for segment_batch in segment_batches:
+        segment_batch = ", ".join(map(str, segment_batch))
+        client = Socrata("data.austintexas.gov", app_token=SO_TOKEN)
+        segment_data += client.get(
+            "8hf2-pdmb", where=f"segment_id in ({segment_batch})", limit=999999
+        )
 
     # socrata stores all segments as MultilineStrings, when they're single LineStrings
-    for s in segments:
+    for s in segment_data:
         if s["the_geom"]["type"] == "MultiLineString":
             s["the_geom"]["type"] = "LineString"
             s["the_geom"]["coordinates"] = s["the_geom"]["coordinates"][0]
-    return segments
+    return segment_data
 
 
 def create_feed_info(turp_id, ex_id, current_time):
