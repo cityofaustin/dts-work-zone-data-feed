@@ -39,10 +39,11 @@ def batch_segments(data, batch_size=100):
         yield data[i : i + batch_size]
 
 
-def get_geometry(segment_ids):
+def get_geometry(segment_ids, client):
     """
     Gets CTM segment geometry from the open data portal.
     :param segment_ids (list): a list of CTM segment IDs to fetch
+    :param client (Socrata): Socrata client object
     :return: the geometry of each segment
     """
     # Batching our list of segments into groups of 100. This is to avoid potentially sending too large of a request.
@@ -50,7 +51,6 @@ def get_geometry(segment_ids):
     segment_data = []
     for segment_batch in segment_batches:
         segment_batch = ", ".join(map(str, segment_batch))
-        client = Socrata("data.austintexas.gov", app_token=SO_TOKEN)
         segment_data += client.get(
             "8hf2-pdmb", where=f"segment_id in ({segment_batch})", limit=999999
         )
@@ -122,7 +122,14 @@ def main():
         )
     ]["SEGMENT_ID"].unique()
     logger.info(f"Retrieving CTM street segments from Socrata")
-    segment_info = get_geometry(segments)
+    soda_client = Socrata(
+        SO_WEB,
+        SO_TOKEN,
+        username=SO_USER,
+        password=SO_PASS,
+        timeout=500,
+    )
+    segment_info = get_geometry(segments, soda_client)
     segment_lookup = {}
 
     # Generating a lookup dict of street segment IDs for later
@@ -236,16 +243,9 @@ def main():
     if SO_USER and SO_PASS:
         logger.info("Uploading data to Socrata")
         # logging in with sodapy
-        soda = Socrata(
-            SO_WEB,
-            SO_TOKEN,
-            username=SO_USER,
-            password=SO_PASS,
-            timeout=500,
-        )
         logger.info("uploading geojson file to Socrata")
         files = {"file": ("wzdx_atx.geojson", json.dumps(output))}
-        response = soda.replace_non_data_file(FEED_DATASET, {}, files)
+        response = soda_client.replace_non_data_file(FEED_DATASET, {}, files)
         logger.info(response)
 
         # for flat exporting to socrata:
@@ -253,7 +253,7 @@ def main():
         for wz in work_zones:
             features += wz.generate_socrata_export()
         logger.info("uploading flat dataset to Socrata")
-        response = soda.replace(FLAT_DATASET, features)
+        response = soda_client.replace(FLAT_DATASET, features)
         logger.info(response)
 
 
