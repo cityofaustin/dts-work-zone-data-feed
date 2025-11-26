@@ -45,12 +45,14 @@ turp_query = """
            TO_CHAR(fi.END_DATE, 'YYYY-MM-DD HH24:MI')             AS END_DATE,
            TO_CHAR(fi.EXTENSION_START_DATE, 'YYYY-MM-DD HH24:MI') AS EXTENSION_START_DATE,
            TO_CHAR(fi.EXTENSION_END_DATE, 'YYYY-MM-DD HH24:MI')   AS EXTENSION_END_DATE,
+           fi.WORK_ZONE_TYPE,
            ff.LOCATION_NAME,
            ff.CLOSURE_TYPE,
            ff.SEGMENT_ID,
            ff.LENGTH,
            ff.WIDTH,
-           ff.NUM_LANES
+           ff.NUM_LANES,
+           ff.DIRECTION
     FROM folder f
              LEFT OUTER JOIN (SELECT FOLDERRSN,
                                      MAX(
@@ -82,13 +84,18 @@ turp_query = """
                                              CASE
                                                  WHEN INFOCODE = 79490 THEN
                                                      INFOVALUE
-                                                 END) AS emergency_permit
-    
+                                                 END) AS emergency_permit,
+                                    MAX(
+                                             CASE
+                                                 WHEN INFOCODE = 50395 THEN
+                                                     INFOVALUE
+                                                 END) AS WORK_ZONE_TYPE
                               FROM FOLDERINFO
                               GROUP BY FOLDERRSN) fi ON f.FOLDERRSN = fi.FOLDERRSN
              LEFT OUTER JOIN (SELECT FOLDERRSN,
                                      C01 AS location_name,
                                      C02 AS closure_type,
+                                     C11 AS direction,
                                      N01 AS segment_id,
                                      N02 AS length,
                                      N03 AS width,
@@ -105,7 +112,6 @@ turp_query = """
       AND ff.segment_id IS NOT NULL
       AND fi.secondary_permit = 'No'
       AND fi.emergency_permit = 'No'
-
 """
 
 
@@ -139,12 +145,14 @@ excavation_permits = """
            TO_CHAR(fi.END_DATE, 'YYYY-MM-DD HH24:MI')             AS END_DATE,
            TO_CHAR(fi.EXTENSION_START_DATE, 'YYYY-MM-DD HH24:MI') AS EXTENSION_START_DATE,
            TO_CHAR(fi.EXTENSION_END_DATE, 'YYYY-MM-DD HH24:MI')   AS EXTENSION_END_DATE,
+           fi.WORK_ZONE_TYPE,
            ff.LOCATION_NAME,
            ff.CLOSURE_TYPE,
            ff.SEGMENT_ID,
            ff.LENGTH,
            ff.WIDTH,
-           ff.NUM_LANES
+           ff.NUM_LANES,
+           ff.DIRECTION
     FROM folder f
              LEFT OUTER JOIN (SELECT FOLDERRSN,
                                      MAX(
@@ -176,13 +184,19 @@ excavation_permits = """
                                              CASE
                                                  WHEN INFOCODE = 79490 THEN
                                                      INFOVALUE
-                                                 END) AS emergency_permit
+                                                 END) AS emergency_permit,
+                                    MAX(
+                                             CASE
+                                                 WHEN INFOCODE = 50395 THEN
+                                                     INFOVALUE
+                                                 END) AS WORK_ZONE_TYPE
     
                               FROM FOLDERINFO
                               GROUP BY FOLDERRSN) fi ON f.FOLDERRSN = fi.FOLDERRSN
              LEFT OUTER JOIN (SELECT FOLDERRSN,
                                      C01 AS location_name,
                                      C02 AS closure_type,
+                                     C11 as direction,
                                      N01 AS segment_id,
                                      N02 AS length,
                                      N03 AS width,
