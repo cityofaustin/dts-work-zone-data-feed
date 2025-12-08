@@ -8,6 +8,7 @@ SERVICE_NAME=
 # Socrata
 FEED_DATASET=d9mm-cjw9
 FLAT_DATASET=qyfh-gwei
+SEGMENT_DATASET=
 SO_PASS=
 SO_TOKEN=
 SO_USER=
@@ -15,3 +16,8 @@ SO_WEB=datahub.austintexas.gov
 
 # Service desk email for the datafeed
 CONTACT_EMAIL=
+
+# Coordinate
+COORDINATE_BASE_URL=
+COORDINATE_USER=
+COORDINATE_PASSWORD=

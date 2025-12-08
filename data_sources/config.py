@@ -18,6 +18,16 @@ amanda_closure_mapping = [
 ]
 
 """
+Mapping AMANDA work zone types to WZDX work zone types
+"""
+
+work_zone_type_mapping = {
+    "mobile": "planned-moving-area",
+    "daily": "planned-moving-area",
+    "24/7": "static",
+}
+
+"""
 Temporary use of right of way (TURP) permits query. Gets the road closure info from the freeform tab (FOLDERFREEFORM),
 along with permit details stored in FOLDERINFO and FOLDER. Ignores emergency permits, secondary permits and those
 created prior to 2018. Only retrieves active permits.
