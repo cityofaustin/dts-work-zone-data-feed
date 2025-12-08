@@ -20,6 +20,7 @@ def get_activated_work_zones():
         "password": COORDINATE_PASSWORD,
     }
     auth_response = requests.post(auth_url, json=auth_payload)
+    auth_response.raise_for_status()
     # Extract token
     token = auth_response.json().get("token")
     headers = {"Authorization": f"Token {token}"}
