@@ -230,8 +230,12 @@ def main():
     # Handling one way streets logic
     gdf_dir = gdf_dir[gdf_dir.apply(keep_row, axis=1)].copy()
 
+    # Adding centerline geometry back into the dataset
+    gdf["bearing_dir"] = "centerline"
+    output = pd.concat([gdf, gdf_dir], ignore_index=True)
+
     # Sending data to socrata open data portal
-    data = gdf_to_payload_with_geojson(gdf_dir)
+    data = gdf_to_payload_with_geojson(output)
     soda_client.replace(SEGMENT_DATASET, payload=data)
 
 

@@ -49,7 +49,7 @@ def batch_segments(data, batch_size=100):
 
 def get_geometry(segment_ids, client):
     """
-    Gets CTM segment geometry from the open data portal.
+    Gets segment geometry from the open data portal.
     :param segment_ids (list): a list of CTM segment IDs to fetch
     :param client (Socrata): Socrata client object
     :return: the geometry of each segment
@@ -251,7 +251,7 @@ def main(local_file=None):
                                     ],
                                     direction="unknown",
                                 )
-                            # If no direction given, just return the first directional segment.
+                            # If no direction given, use the centerline geometry.
                             else:
                                 # Handling directional closures
                                 if direction in segment_lookup[segment_id].keys():
@@ -259,7 +259,7 @@ def main(local_file=None):
                                         segment_id,
                                         veh_impact=closure_type["vehicle_impact"],
                                         segment_info=segment_lookup[segment_id][
-                                            direction
+                                            "centerline"
                                         ],
                                         direction=direction,
                                     )
@@ -275,13 +275,11 @@ def main(local_file=None):
                                             direction=direction,
                                         )
                                 else:
-                                    # if we can't find what to do just make an unknown directional closure
+                                    # if we can't find what to do just make an unknown centerline closure
                                     wz.add_closure(
                                         segment_id,
                                         veh_impact=closure_type["vehicle_impact"],
-                                        segment_info=segment_lookup[segment_id][
-                                            next(iter(segment_lookup[segment_id]))
-                                        ],
+                                        segment_info=segment_lookup[segment_id]["centerline"],
                                         direction="unknown",
                                     )
                             # If we find a closure type, we break out of the loop. This makes the order of
