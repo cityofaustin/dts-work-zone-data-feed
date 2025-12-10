@@ -127,7 +127,7 @@ def main():
             ["Closure : Full Road", "Traffic Lane : Dimensions", "Open Cuts : Street"]
         )
     ]["SEGMENT_ID"].unique()
-    logger.info(f"Retrieving CTM street segments from Socrata")
+    logger.info(f"Retrieving street segment geometry from Socrata")
     soda_client = Socrata(
         SO_WEB,
         SO_TOKEN,
@@ -149,7 +149,7 @@ def main():
             output[dir["bearing_dir"].lower()] = dir
         segment_lookup[int(segment_id)] = output
 
-    # Generating UUIDs data sources
+    # Generating UUIDs for our data sources
     amanda_turp_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "COA_AMANDA_TURP"))
     amanda_ex_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "COA_AMANDA_EX"))
 
@@ -193,7 +193,7 @@ def main():
         if permit_type == "RW":
             # Filtering out details from franchise utilities.
             if subtype == 50500 and workcode in (50570, 50575, 50580):
-                description = f"Temporary use of Right of Way Permit has been issued for this location."
+                description = "Temporary use of Right of Way Permit has been issued for this location."
                 name = "WorkZone Event"
             else:
                 description = f"Temporary use of Right of Way Permit has been issued for this location. \n Details: {folderdesc}"
@@ -202,7 +202,7 @@ def main():
         elif permit_type == "EX":
             # Filtering out details from franchise utilities.
             if subtype == 50685:
-                description = f"Excavation Permit has been issued for this location."
+                description = "Excavation Permit has been issued for this location."
                 name = "WorkZone Event"
             else:
                 description = f"Excavation Permit has been issued for this location. \n Details: {folderdesc}"

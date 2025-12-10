@@ -2,6 +2,14 @@
 
 Scripts that support publishing work zone location data to a geojson feed specified by USDOT called [WZDx](https://github.com/usdot-jpo-ode/wzdx/tree/main).
 
+The json feed is available [here](https://data.austintexas.gov/Transportation-and-Mobility/Work-Zone-Data-Exchange-WZDx-JSON-Feed/d9mm-cjw9/about_data).
+
+A tabular version is also available [here](https://data.austintexas.gov/Transportation-and-Mobility/Roadway-Work-Zones/qyfh-gwei/about_data).
+
+These work zones are currently being shown on the [CTXGO website](https://ctxgo.com/workzones) (managed by TxDOT).
+
+***
+
 ## Data Sources
 
 ### AMANDA Temporary Use of Right of Way (TURP) Permits
@@ -15,6 +23,23 @@ TURP permits can close entire roadways or a few lanes.
 Excavation permits frequently require a lane closure in at least one direction. This feed only includes those excavation permits
 issued for the roadway or those next to the roadway.
 
+### Coordinate
+
+City permits are tracked in a software platform called [Coordinate](https://austin.dotmapsapp.com/). One feature of this 
+platform allows for work zones to be "activated" by permittees. This information is included in the work zone data 
+feed through the `worker_presence` object.
+
+***
+
+## Geometry
+
+The City of Austin's permitting system uses a street network that does not consider direction of travel. The `geometry` directory
+contains a script (`street_segment_directionality.py`) that converts the street network into one link per
+direction of travel (i.e. Northbound, Southbound). This was necessary in order to allow for directional closures according
+to the WZDx specification. 
+
+***
+
 ## Deployment
 
 ### Docker
@@ -23,13 +48,13 @@ It is recommended to run this script using the docker container. You can build i
 
 Note, if you are on Apple Silicon you may need to add `--platform linux/amd64` to get GDAL to install correctly.  
 ```
-$ docker build . -t dts-work-zone-data-feed:production
+$ docker build . -t atddocker/dts-work-zone-data-feed:production
 ```
 
 Then, run it with an env_file created using the env_template.
 
 ```
-$ docker run -it --env-file env_file dts-work-zone-data-feed /bin/bash
+$ docker run -it --env-file env_file atddocker/dts-work-zone-data-feed /bin/bash
 $ python data_sources/amanda_closure_publishing.py
 ```
 
