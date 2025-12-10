@@ -241,17 +241,14 @@ def main(local_file=None):
                 for closure_type in amanda_closure_mapping:
                     if closure_type["amanda_closure"] in list(seg["CLOSURE_TYPE"]):
                         if segment_id in segment_lookup:
-                            # If no direction given, just return the first directional segment.
+                            # If no direction is given, use the centerline.
                             if not direction:
                                 wz.add_closure(
                                     segment_id,
                                     veh_impact=closure_type["vehicle_impact"],
-                                    segment_info=segment_lookup[segment_id][
-                                        next(iter(segment_lookup[segment_id]))
-                                    ],
+                                    segment_info=segment_lookup[segment_id]["centerline"],
                                     direction="unknown",
                                 )
-                            # If no direction given, use the centerline geometry.
                             else:
                                 # Handling directional closures
                                 if direction in segment_lookup[segment_id].keys():
@@ -259,7 +256,7 @@ def main(local_file=None):
                                         segment_id,
                                         veh_impact=closure_type["vehicle_impact"],
                                         segment_info=segment_lookup[segment_id][
-                                            "centerline"
+                                            direction
                                         ],
                                         direction=direction,
                                     )
