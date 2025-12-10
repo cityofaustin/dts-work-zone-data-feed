@@ -40,6 +40,17 @@ to the WZDx specification.
 
 ***
 
+## Validation
+
+The `schema_validation.py` script will check a small subset of work zones in local copy of work zone datafeed's geojson against the schema.
+
+To validate:
+1. Run the feed, with the `local-file` argument: `python data_sources/amanda_closure_publishing.py --local-file wzdx_output.geojson`
+2. Then run the validator `python validation/schema_validation.py`
+3. You should get `✅ data sample passes schema validation` or an error message if something is wrong.
+
+***
+
 ## Deployment
 
 ### Docker
@@ -48,13 +59,14 @@ It is recommended to run this script using the docker container. You can build i
 
 Note, if you are on Apple Silicon you may need to add `--platform linux/amd64` to get GDAL to install correctly.  
 ```
-$ docker build . -t atddocker/dts-work-zone-data-feed:production
+docker build . -t atddocker/dts-work-zone-data-feed:local
 ```
 
 Then, run it with an env_file created using the env_template.
 
 ```
-$ docker run -it --env-file env_file atddocker/dts-work-zone-data-feed /bin/bash
-$ python data_sources/amanda_closure_publishing.py
+docker run -it --env-file .env atddocker/dts-work-zone-data-feed:local /bin/bash
+python data_sources/amanda_closure_publishing.py
+python geometry/street_segment_directionality.py
 ```
 

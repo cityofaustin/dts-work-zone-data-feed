@@ -130,14 +130,12 @@ class WorkZone:
                 "direction": "unknown",
                 "description": self.description,
             }
-            worker_details = (
-                {
+            worker_details = {
                     "are_workers_present": self.workers_present,
-                    "definition": "workers-in-work-zone-working",
+                    "definition": ["workers-in-work-zone-working"],
                     "method": "check-in-app",
                     "confidence": "medium",
-                },
-            )
+                }
             properties = {
                 "core_details": core_details,
                 "start_date": self.start_date,

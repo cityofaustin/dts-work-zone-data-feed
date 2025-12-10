@@ -5,6 +5,7 @@ import pytz
 import uuid
 from sodapy import Socrata
 
+import argparse
 import json
 import os
 
@@ -102,7 +103,7 @@ def create_feed_info(turp_id, ex_id, current_time):
     return feed_info
 
 
-def main():
+def main(local_file=None):
     # Getting AMANDA data
     # Temporary Use of Right of Way (TURP) permits:
     logger.info("Querying AMANDA for TURP permits")
@@ -305,12 +306,17 @@ def main():
     # Stitching everything together
     output = {"feed_info": feed_info, "type": "FeatureCollection", "features": features}
 
+    if local_file:
+        logger.info(f"Writing output to local file: {local_file}")
+        with open(local_file, "w") as f:
+            json.dump(output, f, indent=2)
+
     # Output to Socrata feed/dataset
     if SO_USER and SO_PASS:
         logger.info("Uploading data to Socrata")
         # logging in with sodapy
         logger.info("uploading geojson file to Socrata")
-        files = {"file": ("wzdx_atx.geojson", json.dumps(output))}
+        files = {"file": ("wzdx_atx.geojson", json.dumps(output, indent=2))}
         response = soda_client.replace_non_data_file(FEED_DATASET, {}, files)
         logger.info(response)
 
@@ -324,9 +330,17 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate WZDx feed")
+    parser.add_argument(
+        "--local-file",
+        help="Optional path to write the output GeoJSON feed locally. For debugging or validation.",
+        required=False,
+    )
+    args = parser.parse_args()
+
     logger = get_logger(
         __name__,
         level=logging.INFO,
     )
 
-    main()
+    main(local_file=args.local_file)
