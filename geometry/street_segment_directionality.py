@@ -82,22 +82,16 @@ def direction_label(row):
             return "Northbound"
     # Road is considered running north-south
     if orientation in ["N", "S"]:
-        if 45 <= bearing < 135:
+        if 0 <= bearing < 90:
             return "Northbound"
-        elif 135 <= bearing < 225:
-            return "Southbound"
-        elif 225 <= bearing < 315:
+        elif 90 <= bearing < 270:
             return "Southbound"
         else:
             return "Northbound"
     # Road is considered running east-west
     if orientation in ["E", "W"]:
-        if 45 <= bearing < 135:
+        if 0 <= bearing < 180:
             return "Eastbound"
-        elif 135 <= bearing < 225:
-            return "Eastbound"
-        elif 225 <= bearing < 315:
-            return "Westbound"
         else:
             return "Westbound"
 
