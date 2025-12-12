@@ -1,10 +1,13 @@
 import os
+import logging
 
 import geopandas as gpd
 import pandas as pd
 import pyproj
 from sodapy import Socrata
 from shapely.geometry import LineString, shape, mapping
+
+from utils import get_logger
 
 SO_TOKEN = os.getenv("SO_TOKEN")
 SO_WEB = os.getenv("SO_WEB")
@@ -149,7 +152,8 @@ def keep_row(row):
 
 
 def gdf_to_payload_with_geojson(gdf):
-    out = gdf.copy()
+    out = pd.DataFrame(gdf)
+    # Convert to geoJSON output, which is what socrata expects
     out["geometry"] = out["geometry"].apply(mapping)
 
     # Replace NaN/NaT with None for all columns
@@ -168,9 +172,11 @@ def main():
     )
 
     # Downloading street segments from socrata
+    logger.info("Downloading street segments from Socrata")
     segment_data = soda_client.get("8hf2-pdmb", limit=999999)
     df = pd.DataFrame(segment_data)
 
+    logger.info(f"Transforming {len(df)} street segments")
     # Converting to geopandas dataframe
     df["geometry"] = df["the_geom"].apply(lambda x: shape(x))
     df.drop(["the_geom"], axis=1, inplace=True)
@@ -229,9 +235,16 @@ def main():
     output = pd.concat([gdf, gdf_dir], ignore_index=True)
 
     # Sending data to socrata open data portal
+    logger.info(f"Sending {len(output)} records to socrata open data portal")
     data = gdf_to_payload_with_geojson(output)
-    soda_client.replace(SEGMENT_DATASET, payload=data)
+    response = soda_client.replace(SEGMENT_DATASET, payload=data)
+    logger.info(response)
 
 
 if __name__ == "__main__":
+    logger = get_logger(
+        __name__,
+        level=logging.INFO,
+    )
+
     main()
