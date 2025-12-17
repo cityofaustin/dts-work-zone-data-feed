@@ -61,8 +61,7 @@ turp_query = """
            ff.SEGMENT_ID,
            ff.LENGTH,
            ff.WIDTH,
-           ff.NUM_LANES,
-           ff.DIRECTION
+           ff.NUM_LANES
     FROM folder f
              LEFT OUTER JOIN (SELECT FOLDERRSN,
                                      MAX(
@@ -105,7 +104,6 @@ turp_query = """
              LEFT OUTER JOIN (SELECT FOLDERRSN,
                                      C01 AS location_name,
                                      C02 AS closure_type,
-                                     C11 AS direction,
                                      N01 AS segment_id,
                                      N02 AS length,
                                      N03 AS width,
@@ -161,8 +159,7 @@ excavation_permits = """
            ff.SEGMENT_ID,
            ff.LENGTH,
            ff.WIDTH,
-           ff.NUM_LANES,
-           ff.DIRECTION
+           ff.NUM_LANES
     FROM folder f
              LEFT OUTER JOIN (SELECT FOLDERRSN,
                                      MAX(
@@ -206,7 +203,6 @@ excavation_permits = """
              LEFT OUTER JOIN (SELECT FOLDERRSN,
                                      C01 AS location_name,
                                      C02 AS closure_type,
-                                     C11 as direction,
                                      N01 AS segment_id,
                                      N02 AS length,
                                      N03 AS width,

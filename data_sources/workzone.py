@@ -94,7 +94,7 @@ class WorkZone:
                     place_df = segment_df[segment_df["vehicle_impact"] == type]
                     place_df = place_df[place_df["street_place_id"] == place]
                     # We need more than 1 segment to reduce, and we need all of them to be the same direction.
-                    if len(place_df) > 1 and place_df["direction"].nunique() == 1:
+                    if len(place_df) > 1:
                         # Attempt to merge the list of line geometries.
                         merged_segments = linemerge(list(place_df["geometry"]))
 
