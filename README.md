@@ -58,6 +58,5 @@ Then, run it with an env_file created using the env_template.
 ```
 docker run -it --env-file .env atddocker/dts-work-zone-data-feed:local /bin/bash
 python data_sources/amanda_closure_publishing.py
-python geometry/street_segment_directionality.py
 ```
 
