@@ -31,15 +31,6 @@ feed through the `worker_presence` object.
 
 ***
 
-## Geometry
-
-The City of Austin's permitting system uses a street network that does not consider direction of travel. The `geometry` directory
-contains a script (`street_segment_directionality.py`) that converts the street network into one link per
-direction of travel (i.e. Northbound, Southbound), alongside maintaining a centerline geometry option. 
-This was necessary in order to allow for directional closures according to the WZDx specification. 
-
-***
-
 ## Validation
 
 The `schema_validation.py` script will check a small subset of work zones in local copy of work zone datafeed's geojson against the schema.
