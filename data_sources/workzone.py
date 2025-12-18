@@ -183,7 +183,7 @@ class AmandaWorkZone(WorkZone):
         :param end_date (str):UTC start date, strftime format: %Y-%m-%dT%H:%M:%SZ
         :param work_zone_type (str): work zone type in: static, moving, planned-moving-area
         :param workers_present(bool): True or False if workers are present at the time
-        :param folderrsn: Unique ID of this AMANDA recor.
+        :param folderrsn: Unique ID of this AMANDA record.
         """
         super().__init__(
             data_source_id,

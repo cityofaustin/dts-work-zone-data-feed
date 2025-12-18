@@ -3,7 +3,7 @@ import random
 from jsonschema import validate
 
 # ---- Load main schema ----
-with open("validation/WorkZoneFeed.json") as f:
+with open("validation/WorkZoneFeed_schema.json") as f:
     schema = json.load(f)
 # ---- Load data ----
 with open("wzdx_output.geojson") as f:

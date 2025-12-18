@@ -124,9 +124,9 @@ def main(local_file=None):
     logger.info(f"Downloaded {len(closures['FOLDERRSN'].unique())} EX permits")
 
     # Get activated Work Zones from Coordinate
-    logger.info("Retriving activated work zones form Coordinate")
-    activated_folderrsns = get_activated_work_zones()
-    logger.info(f"{len(activated_folderrsns)} Activated Work Zones retrieved")
+    logger.info("Retrieving activated work zones from Coordinate")
+    active_folder_rsns = get_activated_work_zones()
+    logger.info(f"{len(active_folder_rsns)} Activated Work Zones retrieved")
 
     # Getting the list of unique street segments present in our data
     segments = closures[
@@ -178,7 +178,7 @@ def main(local_file=None):
         permit_closures = closures[closures["FOLDERRSN"] == permit_id]
 
         # Checking if this is an activated work zone in Coordinate
-        if permit_id in activated_folderrsns:
+        if permit_id in active_folder_rsns:
             worker_presence = True
         else:
             worker_presence = False
