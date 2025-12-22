@@ -5,17 +5,25 @@ import pytz
 import uuid
 from sodapy import Socrata
 
+import argparse
 import json
 import os
 
 from amanda import get_amanda_data
-from config import amanda_closure_mapping, turp_query, excavation_permits
+from config import (
+    amanda_closure_mapping,
+    turp_query,
+    excavation_permits,
+    work_zone_type_mapping,
+)
+from coordinate import get_activated_work_zones
 from utils import get_logger
 from workzone import AmandaWorkZone
 
 # Socrata app token
 SO_TOKEN = os.getenv("SO_TOKEN")
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL")
+SEGMENT_DATASET = os.getenv("SEGMENT_DATASET")
 
 # Optional: Socrata credentials for publishing to a dataset
 SO_WEB = os.getenv("SO_WEB")
@@ -41,7 +49,7 @@ def batch_segments(data, batch_size=100):
 
 def get_geometry(segment_ids, client):
     """
-    Gets CTM segment geometry from the open data portal.
+    Gets segment geometry from the open data portal.
     :param segment_ids (list): a list of CTM segment IDs to fetch
     :param client (Socrata): Socrata client object
     :return: the geometry of each segment
@@ -52,7 +60,7 @@ def get_geometry(segment_ids, client):
     for segment_batch in segment_batches:
         segment_batch = ", ".join(map(str, segment_batch))
         segment_data += client.get(
-            "8hf2-pdmb", where=f"segment_id in ({segment_batch})", limit=999999
+            SEGMENT_DATASET, where=f"segment_id in ({segment_batch})", limit=999999
         )
 
     # socrata stores all segments as MultilineStrings, when they're single LineStrings
@@ -101,19 +109,24 @@ def create_feed_info(turp_id, ex_id, current_time):
     return feed_info
 
 
-def main():
+def main(local_file=None):
     # Getting AMANDA data
     # Temporary Use of Right of Way (TURP) permits:
-    logger.info(f"Querying AMANDA for TURP permits")
+    logger.info("Querying AMANDA for TURP permits")
     data = get_amanda_data(turp_query)
     closures = pd.DataFrame(data)
     logger.info(f"Downloaded {len(closures['FOLDERRSN'].unique())} TURP permits")
 
     # Excavation (EX) permits:
-    logger.info(f"Querying AMANDA for EX permits")
+    logger.info("Querying AMANDA for EX permits")
     data = get_amanda_data(excavation_permits)
     closures = pd.concat([closures, pd.DataFrame(data)])
     logger.info(f"Downloaded {len(closures['FOLDERRSN'].unique())} EX permits")
+
+    # Get activated Work Zones from Coordinate
+    logger.info("Retrieving activated work zones from Coordinate")
+    active_folder_rsns = get_activated_work_zones()
+    logger.info(f"{len(active_folder_rsns)} Activated Work Zones retrieved")
 
     # Getting the list of unique street segments present in our data
     segments = closures[
@@ -121,7 +134,7 @@ def main():
             ["Closure : Full Road", "Traffic Lane : Dimensions", "Open Cuts : Street"]
         )
     ]["SEGMENT_ID"].unique()
-    logger.info(f"Retrieving CTM street segments from Socrata")
+    logger.info(f"Retrieving street segment geometry from Socrata")
     soda_client = Socrata(
         SO_WEB,
         SO_TOKEN,
@@ -130,13 +143,18 @@ def main():
         timeout=500,
     )
     segment_info = get_geometry(segments, soda_client)
-    segment_lookup = {}
 
+    # CTM dataset uses "the_geom" and we expect "geometry"
+    for rec in segment_info:
+        if "the_geom" in rec:
+            rec["geometry"] = rec.pop("the_geom")
+
+    segment_lookup = {}
     # Generating a lookup dict of street segment IDs for later
     for segment_id in segment_info:
         segment_lookup[int(segment_id["segment_id"])] = segment_id
 
-    # Generating UUIDs data sources
+    # Generating UUIDs for our data sources
     amanda_turp_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "COA_AMANDA_TURP"))
     amanda_ex_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "COA_AMANDA_EX"))
 
@@ -159,6 +177,12 @@ def main():
         # Filtering our closures dataframe to only the ones associated with the selected permit
         permit_closures = closures[closures["FOLDERRSN"] == permit_id]
 
+        # Checking if this is an activated work zone in Coordinate
+        if permit_id in active_folder_rsns:
+            worker_presence = True
+        else:
+            worker_presence = False
+
         # Gathering permit metadata from the first row of our closures dataframe.
         # This is a consequence of how we've retrieved the data from AMANDA
         permit_type = permit_closures["FOLDERTYPE"].iloc[0]
@@ -168,12 +192,13 @@ def main():
         workcode = permit_closures["WORKCODE"].iloc[0]
         start_date = permit_closures["start_date_dt"].iloc[0]
         end_date = permit_closures["end_date_dt"].iloc[0]
+        work_zone_type = permit_closures["WORK_ZONE_TYPE"].iloc[0]
 
         # Naming and description logic
         if permit_type == "RW":
             # Filtering out details from franchise utilities.
             if subtype == 50500 and workcode in (50570, 50575, 50580):
-                description = f"Temporary use of Right of Way Permit has been issued for this location."
+                description = "Temporary use of Right of Way Permit has been issued for this location."
                 name = "WorkZone Event"
             else:
                 description = f"Temporary use of Right of Way Permit has been issued for this location. \n Details: {folderdesc}"
@@ -182,7 +207,7 @@ def main():
         elif permit_type == "EX":
             # Filtering out details from franchise utilities.
             if subtype == 50685:
-                description = f"Excavation Permit has been issued for this location."
+                description = "Excavation Permit has been issued for this location."
                 name = "WorkZone Event"
             else:
                 description = f"Excavation Permit has been issued for this location. \n Details: {folderdesc}"
@@ -192,6 +217,11 @@ def main():
 
         # Gathering the list of unique segment IDs for iterating on below.
         segments = permit_closures["SEGMENT_ID"].unique()
+
+        if work_zone_type:
+            work_zone_type = work_zone_type_mapping.get(work_zone_type.lower())
+        else:
+            work_zone_type = "static"
 
         # Checking if the closure is some time in the future, if it's not we do not publish it to the feed.
         # Adding one hour to the end time to help inform consumers that the work zone has officially ended.
@@ -203,6 +233,8 @@ def main():
                 description=description,
                 start_date=start_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
                 end_date=end_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
+                work_zone_type=work_zone_type,
+                workers_present=worker_presence,
             )
             # Closure type logic
             # This is how we convert AMANDA road closures into workzone closure types
@@ -239,12 +271,17 @@ def main():
     # Stitching everything together
     output = {"feed_info": feed_info, "type": "FeatureCollection", "features": features}
 
+    if local_file:
+        logger.info(f"Writing output to local file: {local_file}")
+        with open(local_file, "w") as f:
+            json.dump(output, f, indent=2)
+
     # Output to Socrata feed/dataset
     if SO_USER and SO_PASS:
         logger.info("Uploading data to Socrata")
         # logging in with sodapy
         logger.info("uploading geojson file to Socrata")
-        files = {"file": ("wzdx_atx.geojson", json.dumps(output))}
+        files = {"file": ("wzdx_atx.geojson", json.dumps(output, indent=2))}
         response = soda_client.replace_non_data_file(FEED_DATASET, {}, files)
         logger.info(response)
 
@@ -258,9 +295,17 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate WZDx feed")
+    parser.add_argument(
+        "--local-file",
+        help="Optional path to write the output GeoJSON feed locally. For debugging or validation.",
+        required=False,
+    )
+    args = parser.parse_args()
+
     logger = get_logger(
         __name__,
         level=logging.INFO,
     )
 
-    main()
+    main(local_file=args.local_file)

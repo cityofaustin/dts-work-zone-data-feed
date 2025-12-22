@@ -16,6 +16,8 @@ class WorkZone:
         description: str,
         start_date: str,
         end_date: str,
+        work_zone_type: str,
+        workers_present: bool,
     ):
         """
         :param data_source_id (str): UUID of the data source, also shown in the feed_info section
@@ -23,12 +25,16 @@ class WorkZone:
         :param description (str): A description of the WorkZone
         :param start_date (str): UTC start date, strftime format: %Y-%m-%dT%H:%M:%SZ
         :param end_date (str):UTC start date, strftime format: %Y-%m-%dT%H:%M:%SZ
+        :param work_zone_type (str): work zone type in: static, moving, planned-moving-area
+        :param workers_present(bool): True or False if workers are present at the time
         """
         self.data_source_id = data_source_id
         self.name = name
         self.start_date = start_date
         self.end_date = end_date
         self.description = description
+        self.work_zone_type = work_zone_type
+        self.workers_present = workers_present
 
         # Starting an empty array of segments we will add to later.
         self.segments = []
@@ -44,7 +50,7 @@ class WorkZone:
             {
                 "segment_id": segment_id,
                 "vehicle_impact": veh_impact,
-                "geometry": segment_info["the_geom"],
+                "geometry": segment_info["geometry"],
                 "feature_data": segment_info,
                 "direction": direction,
                 "street_place_id": segment_info["street_place_id"],
@@ -87,7 +93,8 @@ class WorkZone:
                 for place in places:
                     place_df = segment_df[segment_df["vehicle_impact"] == type]
                     place_df = place_df[place_df["street_place_id"] == place]
-                    if len(place_df) > 1:  # We need more than 1 segment to reduce
+                    # We need more than 1 segment to reduce, and we need all of them to be the same direction.
+                    if len(place_df) > 1:
                         # Attempt to merge the list of line geometries.
                         merged_segments = linemerge(list(place_df["geometry"]))
 
@@ -123,6 +130,12 @@ class WorkZone:
                 "direction": "unknown",
                 "description": self.description,
             }
+            worker_details = {
+                    "are_workers_present": self.workers_present,
+                    "definition": ["workers-in-work-zone-working"],
+                    "method": "check-in-app",
+                    "confidence": "medium",
+                }
             properties = {
                 "core_details": core_details,
                 "start_date": self.start_date,
@@ -132,8 +145,9 @@ class WorkZone:
                 "is_start_position_verified": False,
                 "is_end_position_verified": False,
                 "location_method": "other",
-                "work_zone_type": "static",
+                "work_zone_type": self.work_zone_type,
                 "vehicle_impact": segment["vehicle_impact"],
+                "worker_presence": worker_details,
             }
             event_object = {
                 "id": self.generate_closure_id(segment["segment_id"]),
@@ -157,6 +171,8 @@ class AmandaWorkZone(WorkZone):
         description: str,
         start_date: str,
         end_date: str,
+        work_zone_type: str,
+        workers_present: bool,
         folderrsn: int,
     ):
         """
@@ -164,10 +180,20 @@ class AmandaWorkZone(WorkZone):
         :param name (str): Name of the WorkZone
         :param description (str): A description of the WorkZone
         :param start_date (str): UTC start date, strftime format: %Y-%m-%dT%H:%M:%SZ
-        :param end_date (str):UTC start date, strftime format: %Y-%m-%dT%H:%M:%SZ,
+        :param end_date (str):UTC start date, strftime format: %Y-%m-%dT%H:%M:%SZ
+        :param work_zone_type (str): work zone type in: static, moving, planned-moving-area
+        :param workers_present(bool): True or False if workers are present at the time
         :param folderrsn: Unique ID of this AMANDA record.
         """
-        super().__init__(data_source_id, name, description, start_date, end_date)
+        super().__init__(
+            data_source_id,
+            name,
+            description,
+            start_date,
+            end_date,
+            work_zone_type,
+            workers_present,
+        )
         self.folderrsn = folderrsn
 
     def generate_closure_id(self, segment_id):
@@ -193,7 +219,7 @@ class AmandaWorkZone(WorkZone):
                 "event_type": "work-zone",
                 "data_source_id": self.data_source_id,
                 "road_names": segment["feature_data"]["full_street_name"],
-                "direction": "unknown",
+                "direction": segment["direction"],
                 "description": self.description,
                 "start_date": self.start_date,
                 "end_date": self.end_date,
@@ -202,9 +228,11 @@ class AmandaWorkZone(WorkZone):
                 "is_start_position_verified": False,
                 "is_end_position_verified": False,
                 "location_method": "other",
-                "work_zone_type": "static",
+                "work_zone_type": self.work_zone_type,
                 "vehicle_impact": segment["vehicle_impact"],
                 "folderrsn": str(self.folderrsn),
+                "are_workers_present": self.workers_present,
+                "are_workers_present_method": "check-in-app",
             }
             data.append(properties)
         return data

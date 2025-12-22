@@ -5,3 +5,4 @@ shapely==2.0.*
 sodapy==2.1.*
 oracledb==2.1.*
 pytz==2024.*
+jsonschema==4.19.*
