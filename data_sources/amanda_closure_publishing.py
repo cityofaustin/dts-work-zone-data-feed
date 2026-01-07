@@ -162,12 +162,39 @@ def main(local_file=None):
     closures = closures.apply(get_start_end_date, axis=1)
     central_time_zone = pytz.timezone("US/Central")
     current_time = datetime.datetime.now(central_time_zone)
-    closures["start_date_dt"] = pd.to_datetime(closures["START_DATE"]).dt.tz_localize(
-        central_time_zone
+    closures["start_date_dt"] = (
+        pd.to_datetime(
+            closures["START_DATE"],
+            errors="coerce"     # Converts invalid dates to NaT
+        )
+        .dt.tz_localize(central_time_zone)
     )
-    closures["end_date_dt"] = pd.to_datetime(closures["END_DATE"]).dt.tz_localize(
-        central_time_zone
+
+    closures["end_date_dt"] = (
+        pd.to_datetime(
+            closures["END_DATE"],
+            errors="coerce"     # Converts invalid dates to NaT
+        )
+        .dt.tz_localize(central_time_zone)
     )
+
+    # Logging of invalid dates
+    if closures["start_date_dt"].isna().any() or closures["end_date_dt"].isna().any():
+        invalid = []
+        invalid.append(closures.loc[closures["start_date_dt"].isna(), ["FOLDERRSN", "START_DATE", "SEGMENT_ID"]])
+        invalid.append(closures.loc[closures["end_date_dt"].isna(), ["FOLDERRSN", "END_DATE", "SEGMENT_ID"]])
+        invalid = pd.concat(invalid)
+        for row in invalid.itertuples(index=False):
+            if not pd.isna(row.START_DATE):
+                logger.info(f"Invalid start date ({row.START_DATE}) for folderRSN: {row.FOLDERRSN} and segment "
+                            f"ID: {row.SEGMENT_ID}")
+            if not pd.isna(row.END_DATE):
+                logger.info(f"Invalid end date ({row.END_DATE}) for folderRSN: {row.FOLDERRSN} and segment "
+                            f"ID: {row.SEGMENT_ID}")
+
+    # Ignores rows with invalid dates
+    closures = closures.dropna(subset=["start_date_dt"])
+    closures = closures.dropna(subset=["end_date_dt"])
 
     work_zones = []
 
