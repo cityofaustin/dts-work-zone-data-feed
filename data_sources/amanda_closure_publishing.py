@@ -162,12 +162,25 @@ def main(local_file=None):
     closures = closures.apply(get_start_end_date, axis=1)
     central_time_zone = pytz.timezone("US/Central")
     current_time = datetime.datetime.now(central_time_zone)
-    closures["start_date_dt"] = pd.to_datetime(closures["START_DATE"]).dt.tz_localize(
-        central_time_zone
+    closures["start_date_dt"] = (
+        pd.to_datetime(
+            closures["START_DATE"],
+            errors="coerce"     # Converts invalid dates to NaT
+        )
+        .dt.tz_localize(central_time_zone)
     )
-    closures["end_date_dt"] = pd.to_datetime(closures["END_DATE"]).dt.tz_localize(
-        central_time_zone
+    # Ignores rows with invalid dates
+    closures = closures.dropna(subset=["start_date_dt"])
+
+    closures["end_date_dt"] = (
+        pd.to_datetime(
+            closures["END_DATE"],
+            errors="coerce"     # Converts invalid dates to NaT
+        )
+        .dt.tz_localize(central_time_zone)
     )
+    # Ignores rows with invalid dates
+    closures = closures.dropna(subset=["end_date_dt"])
 
     work_zones = []
 
