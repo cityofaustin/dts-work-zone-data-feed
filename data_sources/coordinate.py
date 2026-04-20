@@ -7,6 +7,7 @@ COORDINATE_USER = os.getenv("COORDINATE_USER")
 COORDINATE_PASSWORD = os.getenv("COORDINATE_PASSWORD")
 COORDINATE_BASE_URL = os.getenv("COORDINATE_BASE_URL")
 
+
 def paginate_coordinate_request(next_url, headers, data):
     # handling pagination of 50 permits per request
     while next_url:
@@ -62,5 +63,8 @@ def get_activated_work_zones():
 
     work_zone_dates = {}
     for rec in data:
-        work_zone_dates[int(rec["external_id"])] = {"start":  rec["workzone_start"], "end": rec["workzone_end"]}
+        work_zone_dates[int(rec["external_id"])] = {
+            "start": rec["workzone_start"],
+            "end": rec["workzone_end"],
+        }
     return activated_permits, work_zone_dates

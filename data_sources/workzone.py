@@ -29,6 +29,8 @@ class WorkZone:
         :param end_date (str):UTC start date, strftime format: %Y-%m-%dT%H:%M:%SZ
         :param work_zone_type (str): work zone type in: static, moving, planned-moving-area
         :param workers_present(bool): True or False if workers are present at the time
+        :param start_date_verified (bool): True or False if the start date is verified
+        :param end_date_verified (bool): True or False if the end date is verified
         """
         self.data_source_id = data_source_id
         self.name = name
@@ -135,11 +137,11 @@ class WorkZone:
                 "description": self.description,
             }
             worker_details = {
-                    "are_workers_present": self.workers_present,
-                    "definition": ["workers-in-work-zone-working"],
-                    "method": "check-in-app",
-                    "confidence": "medium",
-                }
+                "are_workers_present": self.workers_present,
+                "definition": ["workers-in-work-zone-working"],
+                "method": "check-in-app",
+                "confidence": "medium",
+            }
             properties = {
                 "core_details": core_details,
                 "start_date": self.start_date,
@@ -179,7 +181,7 @@ class AmandaWorkZone(WorkZone):
         workers_present: bool,
         start_date_verified: bool,
         end_date_verified: bool,
-        folderrsn: int
+        folderrsn: int,
     ):
         """
         :param data_source_id (str): UUID of the data source, also shown in the feed_info section
@@ -189,6 +191,8 @@ class AmandaWorkZone(WorkZone):
         :param end_date (str):UTC start date, strftime format: %Y-%m-%dT%H:%M:%SZ
         :param work_zone_type (str): work zone type in: static, moving, planned-moving-area
         :param workers_present(bool): True or False if workers are present at the time
+        :param start_date_verified (bool): True or False if the start date is verified
+        :param end_date_verified (bool): True or False if the end date is verified
         :param folderrsn: Unique ID of this AMANDA record.
         """
         super().__init__(

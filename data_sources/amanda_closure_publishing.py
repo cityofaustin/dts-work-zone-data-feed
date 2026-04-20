@@ -34,6 +34,15 @@ FLAT_DATASET = os.getenv("FLAT_DATASET")
 
 
 def get_start_end_date(row):
+    """
+    Determines the start and end date of a closure using the following logic:
+    - If dates are provided by COORDINATE, use those dates.
+    - If an extension is present, use the extension dates.
+    - Other wise, use the start and end dates of the permit.
+
+    Only coordinate dates are considered "verified".
+    """
+
     if not pd.isnull(row["WORK_ZONE_DATES"]):
         row["START_DATE"] = row["WORK_ZONE_DATES"]["start"] + " 00:00"
         row["END_DATE"] = row["WORK_ZONE_DATES"]["end"] + " 23:59"
@@ -173,35 +182,40 @@ def main(local_file=None):
     closures = closures.apply(get_start_end_date, axis=1)
     central_time_zone = pytz.timezone("US/Central")
     current_time = datetime.datetime.now(central_time_zone)
-    closures["start_date_dt"] = (
-        pd.to_datetime(
-            closures["START_DATE"],
-            errors="coerce"     # Converts invalid dates to NaT
-        )
-        .dt.tz_localize(central_time_zone)
-    )
+    closures["start_date_dt"] = pd.to_datetime(
+        closures["START_DATE"], errors="coerce"  # Converts invalid dates to NaT
+    ).dt.tz_localize(central_time_zone)
 
-    closures["end_date_dt"] = (
-        pd.to_datetime(
-            closures["END_DATE"],
-            errors="coerce"     # Converts invalid dates to NaT
-        )
-        .dt.tz_localize(central_time_zone)
-    )
+    closures["end_date_dt"] = pd.to_datetime(
+        closures["END_DATE"], errors="coerce"  # Converts invalid dates to NaT
+    ).dt.tz_localize(central_time_zone)
 
     # Logging of invalid dates
     if closures["start_date_dt"].isna().any() or closures["end_date_dt"].isna().any():
         invalid = []
-        invalid.append(closures.loc[closures["start_date_dt"].isna(), ["FOLDERRSN", "START_DATE", "SEGMENT_ID"]])
-        invalid.append(closures.loc[closures["end_date_dt"].isna(), ["FOLDERRSN", "END_DATE", "SEGMENT_ID"]])
+        invalid.append(
+            closures.loc[
+                closures["start_date_dt"].isna(),
+                ["FOLDERRSN", "START_DATE", "SEGMENT_ID"],
+            ]
+        )
+        invalid.append(
+            closures.loc[
+                closures["end_date_dt"].isna(), ["FOLDERRSN", "END_DATE", "SEGMENT_ID"]
+            ]
+        )
         invalid = pd.concat(invalid)
         for row in invalid.itertuples(index=False):
             if not pd.isna(row.START_DATE):
-                logger.info(f"Invalid start date ({row.START_DATE}) for folderRSN: {row.FOLDERRSN} and segment "
-                            f"ID: {row.SEGMENT_ID}")
+                logger.info(
+                    f"Invalid start date ({row.START_DATE}) for folderRSN: {row.FOLDERRSN} and segment "
+                    f"ID: {row.SEGMENT_ID}"
+                )
             if not pd.isna(row.END_DATE):
-                logger.info(f"Invalid end date ({row.END_DATE}) for folderRSN: {row.FOLDERRSN} and segment "
-                            f"ID: {row.SEGMENT_ID}")
+                logger.info(
+                    f"Invalid end date ({row.END_DATE}) for folderRSN: {row.FOLDERRSN} and segment "
+                    f"ID: {row.SEGMENT_ID}"
+                )
 
     # Ignores rows with invalid dates
     closures = closures.dropna(subset=["start_date_dt"])
