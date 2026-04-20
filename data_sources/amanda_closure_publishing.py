@@ -34,11 +34,19 @@ FLAT_DATASET = os.getenv("FLAT_DATASET")
 
 
 def get_start_end_date(row):
+    if not pd.isnull(row["WORK_ZONE_DATES"]):
+        row["START_DATE"] = row["WORK_ZONE_DATES"]["start"] + " 00:00"
+        row["END_DATE"] = row["WORK_ZONE_DATES"]["end"] + " 23:59"
+        row["is_start_date_verified"] = True
+        row["is_end_date_verified"] = True
+        return row
     if not pd.isnull(row["EXTENSION_START_DATE"]) and not pd.isnull(
         row["EXTENSION_END_DATE"]
     ):
         row["START_DATE"] = row["EXTENSION_START_DATE"]
         row["END_DATE"] = row["EXTENSION_END_DATE"]
+    row["is_start_date_verified"] = False
+    row["is_end_date_verified"] = False
     return row
 
 
@@ -125,8 +133,11 @@ def main(local_file=None):
 
     # Get activated Work Zones from Coordinate
     logger.info("Retrieving activated work zones from Coordinate")
-    active_folder_rsns = get_activated_work_zones()
+    active_folder_rsns, work_zone_dates = get_activated_work_zones()
     logger.info(f"{len(active_folder_rsns)} Activated Work Zones retrieved")
+
+    # add workzone dates from coordinate, if they exist
+    closures["WORK_ZONE_DATES"] = closures["FOLDERRSN"].map(work_zone_dates)
 
     # Getting the list of unique street segments present in our data
     segments = closures[
@@ -220,6 +231,8 @@ def main(local_file=None):
         start_date = permit_closures["start_date_dt"].iloc[0]
         end_date = permit_closures["end_date_dt"].iloc[0]
         work_zone_type = permit_closures["WORK_ZONE_TYPE"].iloc[0]
+        start_verified = bool(permit_closures["is_start_date_verified"].iloc[0])
+        end_verified = bool(permit_closures["is_end_date_verified"].iloc[0])
 
         # Naming and description logic
         if permit_type == "RW":
@@ -262,6 +275,8 @@ def main(local_file=None):
                 end_date=end_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
                 work_zone_type=work_zone_type,
                 workers_present=worker_presence,
+                start_date_verified=start_verified,
+                end_date_verified=end_verified,
             )
             # Closure type logic
             # This is how we convert AMANDA road closures into workzone closure types

@@ -18,6 +18,8 @@ class WorkZone:
         end_date: str,
         work_zone_type: str,
         workers_present: bool,
+        start_date_verified: bool,
+        end_date_verified: bool,
     ):
         """
         :param data_source_id (str): UUID of the data source, also shown in the feed_info section
@@ -35,6 +37,8 @@ class WorkZone:
         self.description = description
         self.work_zone_type = work_zone_type
         self.workers_present = workers_present
+        self.start_date_verified = start_date_verified
+        self.end_date_verified = end_date_verified
 
         # Starting an empty array of segments we will add to later.
         self.segments = []
@@ -140,8 +144,8 @@ class WorkZone:
                 "core_details": core_details,
                 "start_date": self.start_date,
                 "end_date": self.end_date,
-                "is_start_date_verified": False,
-                "is_end_date_verified": False,
+                "is_start_date_verified": self.start_date_verified,
+                "is_end_date_verified": self.end_date_verified,
                 "is_start_position_verified": False,
                 "is_end_position_verified": False,
                 "location_method": "other",
@@ -173,7 +177,9 @@ class AmandaWorkZone(WorkZone):
         end_date: str,
         work_zone_type: str,
         workers_present: bool,
-        folderrsn: int,
+        start_date_verified: bool,
+        end_date_verified: bool,
+        folderrsn: int
     ):
         """
         :param data_source_id (str): UUID of the data source, also shown in the feed_info section
@@ -193,6 +199,8 @@ class AmandaWorkZone(WorkZone):
             end_date,
             work_zone_type,
             workers_present,
+            start_date_verified,
+            end_date_verified,
         )
         self.folderrsn = folderrsn
 
@@ -223,8 +231,8 @@ class AmandaWorkZone(WorkZone):
                 "description": self.description,
                 "start_date": self.start_date,
                 "end_date": self.end_date,
-                "is_start_date_verified": False,
-                "is_end_date_verified": False,
+                "is_start_date_verified": self.start_date_verified,
+                "is_end_date_verified": self.end_date_verified,
                 "is_start_position_verified": False,
                 "is_end_position_verified": False,
                 "location_method": "other",
