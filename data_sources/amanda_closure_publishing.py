@@ -34,11 +34,28 @@ FLAT_DATASET = os.getenv("FLAT_DATASET")
 
 
 def get_start_end_date(row):
+    """
+    Determines the start and end date of a closure using the following logic:
+    - If dates are provided by COORDINATE, use those dates.
+    - If an extension is present, use the extension dates.
+    - Other wise, use the start and end dates of the permit.
+
+    Only coordinate dates are considered "verified".
+    """
+
+    if not pd.isnull(row["WORK_ZONE_DATES"]):
+        row["START_DATE"] = row["WORK_ZONE_DATES"]["start"] + " 00:00"
+        row["END_DATE"] = row["WORK_ZONE_DATES"]["end"] + " 23:59"
+        row["is_start_date_verified"] = True
+        row["is_end_date_verified"] = True
+        return row
     if not pd.isnull(row["EXTENSION_START_DATE"]) and not pd.isnull(
         row["EXTENSION_END_DATE"]
     ):
         row["START_DATE"] = row["EXTENSION_START_DATE"]
         row["END_DATE"] = row["EXTENSION_END_DATE"]
+    row["is_start_date_verified"] = False
+    row["is_end_date_verified"] = False
     return row
 
 
@@ -125,8 +142,11 @@ def main(local_file=None):
 
     # Get activated Work Zones from Coordinate
     logger.info("Retrieving activated work zones from Coordinate")
-    active_folder_rsns = get_activated_work_zones()
+    active_folder_rsns, work_zone_dates = get_activated_work_zones()
     logger.info(f"{len(active_folder_rsns)} Activated Work Zones retrieved")
+
+    # add workzone dates from coordinate, if they exist
+    closures["WORK_ZONE_DATES"] = closures["FOLDERRSN"].map(work_zone_dates)
 
     # Getting the list of unique street segments present in our data
     segments = closures[
@@ -162,35 +182,40 @@ def main(local_file=None):
     closures = closures.apply(get_start_end_date, axis=1)
     central_time_zone = pytz.timezone("US/Central")
     current_time = datetime.datetime.now(central_time_zone)
-    closures["start_date_dt"] = (
-        pd.to_datetime(
-            closures["START_DATE"],
-            errors="coerce"     # Converts invalid dates to NaT
-        )
-        .dt.tz_localize(central_time_zone)
-    )
+    closures["start_date_dt"] = pd.to_datetime(
+        closures["START_DATE"], errors="coerce"  # Converts invalid dates to NaT
+    ).dt.tz_localize(central_time_zone)
 
-    closures["end_date_dt"] = (
-        pd.to_datetime(
-            closures["END_DATE"],
-            errors="coerce"     # Converts invalid dates to NaT
-        )
-        .dt.tz_localize(central_time_zone)
-    )
+    closures["end_date_dt"] = pd.to_datetime(
+        closures["END_DATE"], errors="coerce"  # Converts invalid dates to NaT
+    ).dt.tz_localize(central_time_zone)
 
     # Logging of invalid dates
     if closures["start_date_dt"].isna().any() or closures["end_date_dt"].isna().any():
         invalid = []
-        invalid.append(closures.loc[closures["start_date_dt"].isna(), ["FOLDERRSN", "START_DATE", "SEGMENT_ID"]])
-        invalid.append(closures.loc[closures["end_date_dt"].isna(), ["FOLDERRSN", "END_DATE", "SEGMENT_ID"]])
+        invalid.append(
+            closures.loc[
+                closures["start_date_dt"].isna(),
+                ["FOLDERRSN", "START_DATE", "SEGMENT_ID"],
+            ]
+        )
+        invalid.append(
+            closures.loc[
+                closures["end_date_dt"].isna(), ["FOLDERRSN", "END_DATE", "SEGMENT_ID"]
+            ]
+        )
         invalid = pd.concat(invalid)
         for row in invalid.itertuples(index=False):
             if not pd.isna(row.START_DATE):
-                logger.info(f"Invalid start date ({row.START_DATE}) for folderRSN: {row.FOLDERRSN} and segment "
-                            f"ID: {row.SEGMENT_ID}")
+                logger.info(
+                    f"Invalid start date ({row.START_DATE}) for folderRSN: {row.FOLDERRSN} and segment "
+                    f"ID: {row.SEGMENT_ID}"
+                )
             if not pd.isna(row.END_DATE):
-                logger.info(f"Invalid end date ({row.END_DATE}) for folderRSN: {row.FOLDERRSN} and segment "
-                            f"ID: {row.SEGMENT_ID}")
+                logger.info(
+                    f"Invalid end date ({row.END_DATE}) for folderRSN: {row.FOLDERRSN} and segment "
+                    f"ID: {row.SEGMENT_ID}"
+                )
 
     # Ignores rows with invalid dates
     closures = closures.dropna(subset=["start_date_dt"])
@@ -220,6 +245,8 @@ def main(local_file=None):
         start_date = permit_closures["start_date_dt"].iloc[0]
         end_date = permit_closures["end_date_dt"].iloc[0]
         work_zone_type = permit_closures["WORK_ZONE_TYPE"].iloc[0]
+        start_verified = bool(permit_closures["is_start_date_verified"].iloc[0])
+        end_verified = bool(permit_closures["is_end_date_verified"].iloc[0])
 
         # Naming and description logic
         if permit_type == "RW":
@@ -262,6 +289,8 @@ def main(local_file=None):
                 end_date=end_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
                 work_zone_type=work_zone_type,
                 workers_present=worker_presence,
+                start_date_verified=start_verified,
+                end_date_verified=end_verified,
             )
             # Closure type logic
             # This is how we convert AMANDA road closures into workzone closure types
