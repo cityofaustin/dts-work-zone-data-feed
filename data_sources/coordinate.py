@@ -1,6 +1,7 @@
 import requests
 import os
-from datetime import date
+from datetime import datetime
+import pytz
 
 # API user credentials for Coordinate app
 COORDINATE_USER = os.getenv("COORDINATE_USER")
@@ -49,9 +50,10 @@ def get_activated_work_zones():
     # Get work zone start/end dates
     # This is a separate request as the above is filtered to only activated work zones
     url = f"{COORDINATE_BASE_URL}/api/map/"
+    ct_date = datetime.now(pytz.timezone("America/Chicago")).date().isoformat()
     params = {
         "type": "permit",
-        "attrs__workzone_end__gte": date.today().isoformat(),
+        "attrs__workzone_end__gte": ct_date,
     }
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
