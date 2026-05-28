@@ -133,7 +133,7 @@ class WorkZone:
                 "event_type": "work-zone",
                 "data_source_id": self.data_source_id,
                 "road_names": [segment["feature_data"]["full_street_name"]],
-                "direction": "unknown",
+                "direction": segment["direction"],
                 "description": self.description,
             }
             worker_details = {
