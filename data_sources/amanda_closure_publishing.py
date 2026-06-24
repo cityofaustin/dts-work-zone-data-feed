@@ -302,7 +302,9 @@ def main(local_file=None):
                                 wz.add_closure(
                                     segment_id,
                                     veh_impact=closure_type["vehicle_impact"],
-                                    segment_info=segment_lookup[segment_id]["centerline"],
+                                    segment_info=segment_lookup[segment_id][
+                                        "centerline"
+                                    ],
                                     direction="unknown",
                                 )
                             else:
@@ -319,20 +321,25 @@ def main(local_file=None):
                                 # handling both direction closures
                                 elif direction == "Both Directions":
                                     for direction in segment_lookup[segment_id]:
-                                        wz.add_closure(
-                                            segment_id,
-                                            veh_impact=closure_type["vehicle_impact"],
-                                            segment_info=segment_lookup[segment_id][
-                                                direction
-                                            ],
-                                            direction=direction,
-                                        )
+                                        if direction != "centerline":
+                                            wz.add_closure(
+                                                segment_id,
+                                                veh_impact=closure_type[
+                                                    "vehicle_impact"
+                                                ],
+                                                segment_info=segment_lookup[segment_id][
+                                                    direction
+                                                ],
+                                                direction=direction,
+                                            )
                                 else:
                                     # if we can't find what to do just make an unknown centerline closure
                                     wz.add_closure(
                                         segment_id,
                                         veh_impact=closure_type["vehicle_impact"],
-                                        segment_info=segment_lookup[segment_id]["centerline"],
+                                        segment_info=segment_lookup[segment_id][
+                                            "centerline"
+                                        ],
                                         direction="unknown",
                                     )
                             # If we find a closure type, we break out of the loop. This makes the order of

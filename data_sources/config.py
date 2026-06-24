@@ -2,6 +2,7 @@
 Mapping AMANDA closure types to WZDX vehicle impact types.
 Note that this list is prioritized so the top value will be checked first and so on.
 """
+
 amanda_closure_mapping = [
     {
         "amanda_closure": "Closure : Full Road",
@@ -113,7 +114,7 @@ turp_query = """
                               FROM FOLDERFREEFORM
                               WHERE FREEFORMCODE in (1010, 1015)
                                 AND C02 in ('Traffic Lane : Dimensions', 'Closure : Full Road', 'Closure : Alley',
-                                            'Closure : Sidewalk', 'Parking Lane : Dimensions') and C03 = 'Yes')
+                                            'Closure : Sidewalk', 'Parking Lane : Dimensions') and (C03 = 'Yes' OR C03 IS NULL))
                                 ff
                              ON ff.FOLDERRSN = f.FOLDERRSN
     WHERE f.FOLDERTYPE = 'RW' AND f.SUBCODE = 50500                            -- Temporary use of ROW permits (TURPs)
@@ -214,7 +215,7 @@ excavation_permits = """
                               FROM FOLDERFREEFORM
                               WHERE FREEFORMCODE in (1010, 1015)
                                 AND C02 in ('Traffic Lane : Dimensions', 'Closure : Full Road', 'Closure : Alley',
-                                            'Closure : Sidewalk', 'Parking Lane : Dimensions', 'Open Cuts : Street') and C03 = 'Yes')
+                                            'Closure : Sidewalk', 'Parking Lane : Dimensions', 'Open Cuts : Street') and (C03 = 'Yes' OR C03 IS NULL))
                                 ff
                              ON ff.FOLDERRSN = f.FOLDERRSN
     WHERE f.FOLDERTYPE = 'EX'                            -- EX permits only
