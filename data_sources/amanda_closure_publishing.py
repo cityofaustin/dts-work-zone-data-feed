@@ -293,9 +293,9 @@ def main(local_file=None):
             for segment_id in segments:
                 # Filtering to the closure types that have been applied to this one segment ID
                 seg = permit_closures[permit_closures["SEGMENT_ID"] == segment_id]
-                direction = seg["DIRECTION"].iloc[0]
                 for closure_type in amanda_closure_mapping:
                     if closure_type["amanda_closure"] in list(seg["CLOSURE_TYPE"]):
+                        direction = seg[seg["CLOSURE_TYPE"] == closure_type["amanda_closure"]]["DIRECTION"].iloc[0]
                         if segment_id in segment_lookup:
                             # If no direction is given, use the centerline.
                             if not direction:
