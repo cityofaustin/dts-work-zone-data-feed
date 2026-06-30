@@ -1,11 +1,13 @@
 import os
 import logging
+import warnings
 
 import geopandas as gpd
 import pandas as pd
 import pyproj
 from sodapy import Socrata
 from shapely.geometry import LineString, shape, mapping
+from shapely.ops import linemerge
 
 from utils import get_logger
 
@@ -13,29 +15,62 @@ SO_TOKEN = os.getenv("SO_TOKEN")
 SO_WEB = os.getenv("SO_WEB")
 SO_USER = os.getenv("SO_USER")
 SO_PASS = os.getenv("SO_PASS")
+SOURCE_DATASET = os.getenv("SOURCE_SEGMENT_DATASET")
 SEGMENT_DATASET = os.getenv("SEGMENT_DATASET")
 
 
-def unwrap_multiline(geom):
+def unwrap_multiline(geom, on_discontinuous="warn"):
     """
-    Converts a MultiLineString geometry to a SingleLineString by only taking the first line or merging them into a single
+    Converts a MultiLineString geometry to a single LineString.
+
+    Before merging, checks whether the component lines actually form a
+    continuous path (i.e. each line's endpoint connects to the next
+    line's start/end, with no gaps or branching). If they do, the merge
+    is exact and order-independent. If they don't, the function falls
+    back to naive point concatenation and warns/raises
+    so you know the result may not represent a real continuous path.
+
     Parameters
     ----------
-    geom (shapely.geometry.linestring.MultiLineString)
+    geom : shapely.geometry.MultiLineString or shapely.geometry.LineString
+    on_discontinuous : str, {"warn", "raise", "ignore"}
+        What to do if the MultiLineString is NOT a continuous path.
+        - "warn":   merge anyway via point concatenation, emit a warning
+        - "raise":  raise a ValueError instead of merging
+        - "ignore": merge anyway via point concatenation, silently
 
     Returns
     -------
-    shapely.geometry.linestring.LineString
-
+    shapely.geometry.LineString
     """
 
     if geom.geom_type == "MultiLineString":
         # If there's only one LineString inside, extract it
         if len(geom.geoms) == 1:
             return geom.geoms[0]
-        else:
-            # If there are multiple, merge them into one continuous line
-            return LineString([pt for line in geom.geoms for pt in line.coords])
+
+        # linemerge stitches lines together based on shared endpoints,
+        # regardless of input order or direction. If the result is a
+        # single LineString, the parts were truly continuous.
+        merged = linemerge(geom)
+
+        if merged.geom_type == "LineString":
+            return merged
+
+        # merged is still a MultiLineString -> parts don't connect
+        # (gap between segments, or a branching/forked structure)
+        msg = (
+            f"MultiLineString with {len(geom.geoms)} parts is not a continuous "
+            "path (gap or branch detected between segments). Falling back to "
+            "naive point concatenation in original order, which may produce "
+            "a misleading line."
+        )
+        if on_discontinuous == "raise":
+            raise ValueError(msg)
+        elif on_discontinuous == "warn":
+            warnings.warn(msg)
+        return LineString([pt for line in geom.geoms for pt in line.coords])
+
     return geom
 
 
@@ -173,7 +208,7 @@ def main():
 
     # Downloading street segments from socrata
     logger.info("Downloading street segments from Socrata")
-    segment_data = soda_client.get("8hf2-pdmb", limit=999999)
+    segment_data = soda_client.get(SOURCE_DATASET, limit=999999)
     df = pd.DataFrame(segment_data)
 
     logger.info(f"Transforming {len(df)} street segments")
