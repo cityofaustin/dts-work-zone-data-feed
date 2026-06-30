@@ -2,6 +2,7 @@
 Mapping AMANDA closure types to WZDX vehicle impact types.
 Note that this list is prioritized so the top value will be checked first and so on.
 """
+
 amanda_closure_mapping = [
     {
         "amanda_closure": "Closure : Full Road",
@@ -61,7 +62,8 @@ turp_query = """
            ff.SEGMENT_ID,
            ff.LENGTH,
            ff.WIDTH,
-           ff.NUM_LANES
+           ff.NUM_LANES,
+           ff.DIRECTION
     FROM folder f
              LEFT OUTER JOIN (SELECT FOLDERRSN,
                                      MAX(
@@ -104,6 +106,7 @@ turp_query = """
              LEFT OUTER JOIN (SELECT FOLDERRSN,
                                      C01 AS location_name,
                                      C02 AS closure_type,
+                                     C11 AS direction,
                                      N01 AS segment_id,
                                      N02 AS length,
                                      N03 AS width,
@@ -111,7 +114,7 @@ turp_query = """
                               FROM FOLDERFREEFORM
                               WHERE FREEFORMCODE in (1010, 1015)
                                 AND C02 in ('Traffic Lane : Dimensions', 'Closure : Full Road', 'Closure : Alley',
-                                            'Closure : Sidewalk', 'Parking Lane : Dimensions') and C03 = 'Yes')
+                                            'Closure : Sidewalk', 'Parking Lane : Dimensions') and (C03 = 'Yes' OR C03 IS NULL))
                                 ff
                              ON ff.FOLDERRSN = f.FOLDERRSN
     WHERE f.FOLDERTYPE = 'RW' AND f.SUBCODE = 50500                            -- Temporary use of ROW permits (TURPs)
@@ -159,7 +162,8 @@ excavation_permits = """
            ff.SEGMENT_ID,
            ff.LENGTH,
            ff.WIDTH,
-           ff.NUM_LANES
+           ff.NUM_LANES,
+           ff.DIRECTION
     FROM folder f
              LEFT OUTER JOIN (SELECT FOLDERRSN,
                                      MAX(
@@ -203,6 +207,7 @@ excavation_permits = """
              LEFT OUTER JOIN (SELECT FOLDERRSN,
                                      C01 AS location_name,
                                      C02 AS closure_type,
+                                     C11 as direction,
                                      N01 AS segment_id,
                                      N02 AS length,
                                      N03 AS width,
@@ -210,7 +215,7 @@ excavation_permits = """
                               FROM FOLDERFREEFORM
                               WHERE FREEFORMCODE in (1010, 1015)
                                 AND C02 in ('Traffic Lane : Dimensions', 'Closure : Full Road', 'Closure : Alley',
-                                            'Closure : Sidewalk', 'Parking Lane : Dimensions', 'Open Cuts : Street') and C03 = 'Yes')
+                                            'Closure : Sidewalk', 'Parking Lane : Dimensions', 'Open Cuts : Street') and (C03 = 'Yes' OR C03 IS NULL))
                                 ff
                              ON ff.FOLDERRSN = f.FOLDERRSN
     WHERE f.FOLDERTYPE = 'EX'                            -- EX permits only

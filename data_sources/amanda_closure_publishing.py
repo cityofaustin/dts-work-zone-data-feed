@@ -79,12 +79,6 @@ def get_geometry(segment_ids, client):
         segment_data += client.get(
             SEGMENT_DATASET, where=f"segment_id in ({segment_batch})", limit=999999
         )
-
-    # socrata stores all segments as MultilineStrings, when they're single LineStrings
-    for s in segment_data:
-        if s["the_geom"]["type"] == "MultiLineString":
-            s["the_geom"]["type"] = "LineString"
-            s["the_geom"]["coordinates"] = s["the_geom"]["coordinates"][0]
     return segment_data
 
 
@@ -163,16 +157,18 @@ def main(local_file=None):
         timeout=500,
     )
     segment_info = get_geometry(segments, soda_client)
+    segment_info = pd.DataFrame(segment_info)
+    segment_ids = segment_info["segment_id"].unique()
 
-    # CTM dataset uses "the_geom" and we expect "geometry"
-    for rec in segment_info:
-        if "the_geom" in rec:
-            rec["geometry"] = rec.pop("the_geom")
-
-    segment_lookup = {}
     # Generating a lookup dict of street segment IDs for later
-    for segment_id in segment_info:
-        segment_lookup[int(segment_id["segment_id"])] = segment_id
+    segment_lookup = {}
+    for segment_id in segment_ids:
+        segments = segment_info[segment_info["segment_id"] == segment_id]
+        segments = segments.to_dict(orient="records")
+        output = {}
+        for dir in segments:
+            output[dir["bearing_dir"].lower()] = dir
+        segment_lookup[int(segment_id)] = output
 
     # Generating UUIDs for our data sources
     amanda_turp_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "COA_AMANDA_TURP"))
@@ -299,12 +295,53 @@ def main(local_file=None):
                 seg = permit_closures[permit_closures["SEGMENT_ID"] == segment_id]
                 for closure_type in amanda_closure_mapping:
                     if closure_type["amanda_closure"] in list(seg["CLOSURE_TYPE"]):
+                        direction = seg[seg["CLOSURE_TYPE"] == closure_type["amanda_closure"]]["DIRECTION"].iloc[0]
                         if segment_id in segment_lookup:
-                            wz.add_closure(
-                                segment_id,
-                                veh_impact=closure_type["vehicle_impact"],
-                                segment_info=segment_lookup[segment_id],
-                            )
+                            # If no direction is given, use the centerline.
+                            if not direction:
+                                wz.add_closure(
+                                    segment_id,
+                                    veh_impact=closure_type["vehicle_impact"],
+                                    segment_info=segment_lookup[segment_id][
+                                        "centerline"
+                                    ],
+                                    direction="unknown",
+                                )
+                            else:
+                                # Handling directional closures
+                                if direction in segment_lookup[segment_id].keys():
+                                    wz.add_closure(
+                                        segment_id,
+                                        veh_impact=closure_type["vehicle_impact"],
+                                        segment_info=segment_lookup[segment_id][
+                                            direction
+                                        ],
+                                        direction=direction,
+                                    )
+                                # handling both direction closures
+                                elif direction == "Both Directions":
+                                    for direction in segment_lookup[segment_id]:
+                                        if direction != "centerline":
+                                            wz.add_closure(
+                                                segment_id,
+                                                veh_impact=closure_type[
+                                                    "vehicle_impact"
+                                                ],
+                                                segment_info=segment_lookup[segment_id][
+                                                    direction
+                                                ],
+                                                direction=direction,
+                                            )
+                                else:
+                                    # if we can't find what to do just make an unknown centerline closure
+                                    wz.add_closure(
+                                        segment_id,
+                                        veh_impact=closure_type["vehicle_impact"],
+                                        segment_info=segment_lookup[segment_id][
+                                            "centerline"
+                                        ],
+                                        direction="unknown",
+                                    )
                             # If we find a closure type, we break out of the loop. This makes the order of
                             # amanda_closure_mapping important.
                             break

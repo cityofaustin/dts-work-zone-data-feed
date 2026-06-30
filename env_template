@@ -14,6 +14,9 @@ SO_TOKEN=
 SO_USER=
 SO_WEB=datahub.austintexas.gov
 
+# Source Socrata dataset only needed for street_segment_directionality.py
+SOURCE_SEGMENT_DATASET=8hf2-pdmb
+
 # Service desk email for the datafeed
 CONTACT_EMAIL=
 
