@@ -24,7 +24,7 @@ Mapping AMANDA work zone types to WZDX work zone types
 
 work_zone_type_mapping = {
     "mobile": "planned-moving-area",
-    "daily": "planned-moving-area",
+    "daily": "static",
     "24/7": "static",
 }
 
