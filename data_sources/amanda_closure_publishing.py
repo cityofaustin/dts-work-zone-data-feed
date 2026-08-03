@@ -30,6 +30,7 @@ SO_WEB = os.getenv("SO_WEB")
 SO_USER = os.getenv("SO_USER")
 SO_PASS = os.getenv("SO_PASS")
 FEED_DATASET = os.getenv("FEED_DATASET")
+CRITICAL_DATASET = os.getenv("CRITICAL_DATASET")
 FLAT_DATASET = os.getenv("FLAT_DATASET")
 
 
@@ -357,12 +358,17 @@ def main(local_file=None):
 
     # generate all closure feature's json blobs
     features = []
+    critical_features = []
     for wz in work_zones:
         wz.reduce_closure_geometry()
         features += wz.generate_json()
+        critical_wz = wz.generate_critical_corridor_json()
+        if critical_wz:
+            critical_features += critical_wz
 
     # Stitching everything together
     output = {"feed_info": feed_info, "type": "FeatureCollection", "features": features}
+    output_critical = {"feed_info": feed_info, "type": "FeatureCollection", "features": critical_features}
 
     if local_file:
         logger.info(f"Writing output to local file: {local_file}")
@@ -373,9 +379,12 @@ def main(local_file=None):
     if SO_USER and SO_PASS:
         logger.info("Uploading data to Socrata")
         # logging in with sodapy
-        logger.info("uploading geojson file to Socrata")
+        logger.info("uploading geojson files to Socrata")
         files = {"file": ("wzdx_atx.geojson", json.dumps(output, indent=2))}
         response = soda_client.replace_non_data_file(FEED_DATASET, {}, files)
+        logger.info(response)
+        files_critical = {"file": ("wzdx_atx_critical.geojson", json.dumps(output_critical, indent=2))}
+        response = soda_client.replace_non_data_file(CRITICAL_DATASET, {}, files_critical)
         logger.info(response)
 
         # for flat exporting to socrata:

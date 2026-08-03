@@ -1,6 +1,7 @@
 import os
 import logging
 import warnings
+import requests
 
 import geopandas as gpd
 import pandas as pd
@@ -17,6 +18,8 @@ SO_USER = os.getenv("SO_USER")
 SO_PASS = os.getenv("SO_PASS")
 SOURCE_DATASET = os.getenv("SOURCE_SEGMENT_DATASET")
 SEGMENT_DATASET = os.getenv("SEGMENT_DATASET")
+AGOL_USERNAME = os.getenv("AGOL_USERNAME")
+AGOL_PASSWORD = os.getenv("AGOL_PASSWORD")
 
 
 def unwrap_multiline(geom, on_discontinuous="warn"):
@@ -73,6 +76,83 @@ def unwrap_multiline(geom, on_discontinuous="warn"):
 
     return geom
 
+def tagging_critical_corridor_segments(df):
+    critical = get_critical_corridor_segments()
+    df = df.to_crs(2277)
+    df["critical_corridor"] = df.geometry.intersects(critical)
+    df = df.to_crs(4326)
+    return df
+
+
+def get_critical_corridor_segments():
+    token = get_token(AGOL_USERNAME, AGOL_PASSWORD)
+    layer_url = "https://services.arcgis.com/0L95CJ0VTaxqcmED/arcgis/rest/services/CCO_Critical_Corridor_Network/FeatureServer/4"
+    geojson_features = query_all_features(layer_url, token)
+    critical = gpd.GeoDataFrame.from_features(geojson_features, crs="EPSG:4326")
+    # Reproject to a feet-based CRS so buffer distance is in feet
+    critical = critical.to_crs("EPSG:2277")
+    # Buffer 100 ft
+    critical["geometry"] = critical.buffer(100)
+    # merging them all into one shape
+    critical = critical.unary_union
+    return critical
+
+def get_token(username: str, password: str) -> str:
+    """Generate a short-lived ArcGIS Online token."""
+    token_url = "https://www.arcgis.com/sharing/rest/generateToken"
+    resp = requests.post(
+        token_url,
+        data={
+            "username": username,
+            "password": password,
+            "referer": "https://www.arcgis.com",
+            "f": "json",
+            "expiration": 60,  # minutes
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if "token" not in data:
+        raise RuntimeError(f"Token generation failed: {data}")
+    return data["token"]
+
+def query_all_features(layer_url: str, token: str) -> list[dict]:
+    """Page through a layer's features (handles maxRecordCount) and return GeoJSON features."""
+    features = []
+    offset = 0
+    page_size = 1000  # will be clipped to server's actual max automatically by most services
+
+    while True:
+        params = {
+            "where": "1=1",
+            "outFields": "*",
+            "returnGeometry": "true",
+            "f": "geojson",
+            "resultOffset": offset,
+            "resultRecordCount": page_size,
+            "token": token,
+        }
+        resp = requests.get(f"{layer_url}/query", params=params, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+
+        if "error" in data:
+            raise RuntimeError(f"Query error on {layer_url}: {data['error']}")
+
+        page_features = data.get("features", [])
+        if not page_features:
+            break
+
+        features.extend(page_features)
+
+        # Stop if server says there are no more, or if we got fewer than requested
+        if not data.get("properties", {}).get("exceededTransferLimit", False) and len(page_features) < page_size:
+            break
+
+        offset += len(page_features)
+
+    return features
 
 def bearing(line):
     """
@@ -203,7 +283,7 @@ def main():
         SO_TOKEN,
         username=SO_USER,
         password=SO_PASS,
-        timeout=500,
+        timeout=10*60,
     )
 
     # Downloading street segments from socrata
@@ -220,6 +300,9 @@ def main():
     # Cleaning up data converting to single line geometry. Socrata is stored as multiline but in my testing all of
     # them are actually single lines.
     gdf["geometry"] = gdf.geometry.apply(unwrap_multiline)
+
+    # Tagging segments if they are a part of the critical coordinator network
+    gdf = tagging_critical_corridor_segments(gdf)
 
     # Calculate bearing for the line
     gdf["bearing"] = gdf.geometry.apply(bearing)
