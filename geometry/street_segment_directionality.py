@@ -94,7 +94,8 @@ def get_critical_corridor_segments():
     # Buffer 100 ft
     critical["geometry"] = critical.buffer(100)
     # merging them all into one shape
-    critical = critical.unary_union
+    critical = critical.union_all() if hasattr(critical, "union_all") else critical.unary_union
+
     return critical
 
 def get_token(username: str, password: str) -> str:
