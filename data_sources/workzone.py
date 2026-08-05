@@ -262,6 +262,44 @@ class AmandaWorkZone(WorkZone):
             data.append(properties)
         return data
 
+    def generate_segment_closure(self, segment):
+        core_details = {
+            "name": self.name,
+            "event_type": "work-zone",
+            "data_source_id": self.data_source_id,
+            "road_names": [segment["feature_data"]["full_street_name"]],
+            "direction": segment["direction"],
+            "description": self.description,
+        }
+        worker_details = {
+            "are_workers_present": self.workers_present,
+            "definition": ["workers-in-work-zone-working"],
+            "method": "check-in-app",
+            "confidence": "medium",
+        }
+        properties = {
+            "core_details": core_details,
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "is_start_date_verified": self.start_date_verified,
+            "is_end_date_verified": self.end_date_verified,
+            "is_start_position_verified": False,
+            "is_end_position_verified": False,
+            "location_method": "other",
+            "work_zone_type": self.work_zone_type,
+            "vehicle_impact": segment["vehicle_impact"],
+            "worker_presence": worker_details,
+        }
+        event_object = {
+            "id": self.generate_closure_id(
+                segment["segment_id"], direction=segment["direction"]
+            ),
+            "type": "Feature",
+            "properties": properties,
+            "geometry": segment["geometry"],
+        }
+        return event_object
+
     def generate_json(self):
         """
         Generates the JSON blob for this WorkZone according to the specification.
@@ -269,41 +307,7 @@ class AmandaWorkZone(WorkZone):
         """
         data = []
         for segment in self.segments:
-            core_details = {
-                "name": self.name,
-                "event_type": "work-zone",
-                "data_source_id": self.data_source_id,
-                "road_names": [segment["feature_data"]["full_street_name"]],
-                "direction": segment["direction"],
-                "description": self.description,
-            }
-            worker_details = {
-                "are_workers_present": self.workers_present,
-                "definition": ["workers-in-work-zone-working"],
-                "method": "check-in-app",
-                "confidence": "medium",
-            }
-            properties = {
-                "core_details": core_details,
-                "start_date": self.start_date,
-                "end_date": self.end_date,
-                "is_start_date_verified": self.start_date_verified,
-                "is_end_date_verified": self.end_date_verified,
-                "is_start_position_verified": False,
-                "is_end_position_verified": False,
-                "location_method": "other",
-                "work_zone_type": self.work_zone_type,
-                "vehicle_impact": segment["vehicle_impact"],
-                "worker_presence": worker_details,
-            }
-            event_object = {
-                "id": self.generate_closure_id(
-                    segment["segment_id"], direction=segment["direction"]
-                ),
-                "type": "Feature",
-                "properties": properties,
-                "geometry": segment["geometry"],
-            }
+            event_object = self.generate_segment_closure(segment)
             data.append(event_object)
         return data
 
@@ -315,41 +319,6 @@ class AmandaWorkZone(WorkZone):
         data = []
         for segment in self.segments:
             if segment["critical_corridor"]:
-                core_details = {
-                    "name": self.name,
-                    "event_type": "work-zone",
-                    "data_source_id": self.data_source_id,
-                    "road_names": [segment["feature_data"]["full_street_name"]],
-                    "direction": segment["direction"],
-                    "description": self.description,
-                }
-                worker_details = {
-                    "are_workers_present": self.workers_present,
-                    "definition": ["workers-in-work-zone-working"],
-                    "method": "check-in-app",
-                    "confidence": "medium",
-                }
-                properties = {
-                    "core_details": core_details,
-                    "start_date": self.start_date,
-                    "end_date": self.end_date,
-                    "is_start_date_verified": self.start_date_verified,
-                    "is_end_date_verified": self.end_date_verified,
-                    "is_start_position_verified": False,
-                    "is_end_position_verified": False,
-                    "location_method": "other",
-                    "work_zone_type": self.work_zone_type,
-                    "vehicle_impact": segment["vehicle_impact"],
-                    "worker_presence": worker_details,
-                }
-                event_object = {
-                    "id": self.generate_closure_id(
-                        segment["segment_id"], direction=segment["direction"]
-                    ),
-                    "type": "Feature",
-                    "properties": properties,
-                    "geometry": segment["geometry"],
-                }
+                event_object = self.generate_segment_closure(segment)
                 data.append(event_object)
         return data
-
