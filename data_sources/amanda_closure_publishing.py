@@ -296,6 +296,9 @@ def main(local_file=None):
                 for closure_type in amanda_closure_mapping:
                     if closure_type["amanda_closure"] in list(seg["CLOSURE_TYPE"]):
                         direction = seg[seg["CLOSURE_TYPE"] == closure_type["amanda_closure"]]["DIRECTION"].iloc[0]
+                        # If no direction is supplied but full road closure is selected, we assume it affects both directions of travel
+                        if not direction and closure_type["amanda_closure"] == "Closure : Full Road":
+                            direction = "Both Directions"
                         if segment_id in segment_lookup:
                             # If no direction is given, use the centerline.
                             if not direction:
