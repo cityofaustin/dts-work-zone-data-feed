@@ -60,6 +60,7 @@ class WorkZone:
                 "feature_data": segment_info,
                 "direction": direction,
                 "street_place_id": segment_info["street_place_id"],
+                "critical_corridor": bool(segment_info["critical_corridor"]),
             }
         )
 
@@ -99,20 +100,25 @@ class WorkZone:
                 for place in places:
                     place_df = segment_df[segment_df["vehicle_impact"] == type]
                     place_df = place_df[place_df["street_place_id"] == place]
-                    # We need more than 1 segment to reduce, and we need all of them to be the same direction.
-                    if len(place_df) > 1 and place_df["direction"].nunique() == 1:
+                    # We need more than 1 segment to reduce, and we need all of them to be the same direction
+                    # AND for all of them to be either critical or non-critical.
+                    if len(place_df) > 1 and place_df["direction"].nunique() == 1 and place_df["critical_corridor"].nunique() == 1:
                         # Attempt to merge the list of line geometries.
                         merged_segments = linemerge(list(place_df["geometry"]))
 
                         # If a single linestring is returned, we know we have successfully combined all segments
                         if merged_segments.geom_type == "LineString":
                             edited_segment = dict(place_df.iloc[0])
+                            edited_segment["critical_corridor"] = bool(edited_segment["critical_corridor"])
                             edited_segment["geometry"] = merged_segments
                             reduced_segments.append(edited_segment)
 
                         # If a multiline is returned, we failed to combine as the segments are likely disjointed
                         elif merged_segments.geom_type == "MultiLineString":
-                            reduced_segments += place_df.to_dict("records")
+                            records = place_df.to_dict("records")
+                            for record in records:
+                                record["critical_corridor"] = bool(record["critical_corridor"])
+                            reduced_segments += records
                     else:
                         reduced_segments += place_df.to_dict("records")
 
@@ -251,9 +257,48 @@ class AmandaWorkZone(WorkZone):
                 "folderrsn": str(self.folderrsn),
                 "are_workers_present": self.workers_present,
                 "are_workers_present_method": "check-in-app",
+                "critical_corridor": segment["critical_corridor"],
             }
             data.append(properties)
         return data
+
+    def generate_segment_closure(self, segment):
+        core_details = {
+            "name": self.name,
+            "event_type": "work-zone",
+            "data_source_id": self.data_source_id,
+            "road_names": [segment["feature_data"]["full_street_name"]],
+            "direction": segment["direction"],
+            "description": self.description,
+        }
+        worker_details = {
+            "are_workers_present": self.workers_present,
+            "definition": ["workers-in-work-zone-working"],
+            "method": "check-in-app",
+            "confidence": "medium",
+        }
+        properties = {
+            "core_details": core_details,
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "is_start_date_verified": self.start_date_verified,
+            "is_end_date_verified": self.end_date_verified,
+            "is_start_position_verified": False,
+            "is_end_position_verified": False,
+            "location_method": "other",
+            "work_zone_type": self.work_zone_type,
+            "vehicle_impact": segment["vehicle_impact"],
+            "worker_presence": worker_details,
+        }
+        event_object = {
+            "id": self.generate_closure_id(
+                segment["segment_id"], direction=segment["direction"]
+            ),
+            "type": "Feature",
+            "properties": properties,
+            "geometry": segment["geometry"],
+        }
+        return event_object
 
     def generate_json(self):
         """
@@ -262,40 +307,18 @@ class AmandaWorkZone(WorkZone):
         """
         data = []
         for segment in self.segments:
-            core_details = {
-                "name": self.name,
-                "event_type": "work-zone",
-                "data_source_id": self.data_source_id,
-                "road_names": [segment["feature_data"]["full_street_name"]],
-                "direction": segment["direction"],
-                "description": self.description,
-            }
-            worker_details = {
-                "are_workers_present": self.workers_present,
-                "definition": ["workers-in-work-zone-working"],
-                "method": "check-in-app",
-                "confidence": "medium",
-            }
-            properties = {
-                "core_details": core_details,
-                "start_date": self.start_date,
-                "end_date": self.end_date,
-                "is_start_date_verified": self.start_date_verified,
-                "is_end_date_verified": self.end_date_verified,
-                "is_start_position_verified": False,
-                "is_end_position_verified": False,
-                "location_method": "other",
-                "work_zone_type": self.work_zone_type,
-                "vehicle_impact": segment["vehicle_impact"],
-                "worker_presence": worker_details,
-            }
-            event_object = {
-                "id": self.generate_closure_id(
-                    segment["segment_id"], direction=segment["direction"]
-                ),
-                "type": "Feature",
-                "properties": properties,
-                "geometry": segment["geometry"],
-            }
+            event_object = self.generate_segment_closure(segment)
             data.append(event_object)
+        return data
+
+    def generate_critical_corridor_json(self):
+        """
+        Generates the JSON blob for this WorkZone according to the specification.
+        :return:
+        """
+        data = []
+        for segment in self.segments:
+            if segment["critical_corridor"]:
+                event_object = self.generate_segment_closure(segment)
+                data.append(event_object)
         return data
