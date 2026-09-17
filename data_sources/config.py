@@ -9,6 +9,10 @@ amanda_closure_mapping = [
         "vehicle_impact": "all-lanes-closed",
     },
     {
+        "amanda_closure": "Closure : Does this result in a full directional closure?",
+        "vehicle_impact": "all-lanes-closed",
+    },
+    {
         "amanda_closure": "Traffic Lane : Dimensions",
         "vehicle_impact": "some-lanes-closed",
     },
@@ -114,7 +118,7 @@ turp_query = """
                               FROM FOLDERFREEFORM
                               WHERE FREEFORMCODE in (1010, 1015)
                                 AND C02 in ('Traffic Lane : Dimensions', 'Closure : Full Road', 'Closure : Alley',
-                                            'Closure : Sidewalk', 'Parking Lane : Dimensions') and (C03 = 'Yes' OR C03 IS NULL))
+                                            'Closure : Sidewalk', 'Parking Lane : Dimensions', 'Closure : Does this result in a full directional closure?') and (C03 = 'Yes' OR C03 IS NULL))
                                 ff
                              ON ff.FOLDERRSN = f.FOLDERRSN
     WHERE f.FOLDERTYPE = 'RW' AND f.SUBCODE = 50500                            -- Temporary use of ROW permits (TURPs)
@@ -215,7 +219,7 @@ excavation_permits = """
                               FROM FOLDERFREEFORM
                               WHERE FREEFORMCODE in (1010, 1015)
                                 AND C02 in ('Traffic Lane : Dimensions', 'Closure : Full Road', 'Closure : Alley',
-                                            'Closure : Sidewalk', 'Parking Lane : Dimensions', 'Open Cuts : Street') and (C03 = 'Yes' OR C03 IS NULL))
+                                            'Closure : Sidewalk', 'Parking Lane : Dimensions', 'Open Cuts : Street', 'Closure : Does this result in a full directional closure?') and (C03 = 'Yes' OR C03 IS NULL))
                                 ff
                              ON ff.FOLDERRSN = f.FOLDERRSN
     WHERE f.FOLDERTYPE = 'EX'                            -- EX permits only
