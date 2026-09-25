@@ -11,9 +11,7 @@ import os
 
 from amanda import get_amanda_data
 from config import (
-    amanda_closure_mapping,
-    turp_query,
-    excavation_permits,
+    amanda_query,
     work_zone_type_mapping,
 )
 from coordinate import get_activated_work_zones
@@ -151,23 +149,14 @@ def main(local_file=None):
     current_time = datetime.datetime.now(central_time_zone)
 
     # Getting AMANDA data
-    # Temporary Use of Right of Way (TURP) permits:
-    logger.info("Querying AMANDA for TURP permits")
-    data = get_amanda_data(turp_query)
-    # logger.info(f"Downloaded {len(closures['FOLDERRSN'].unique())} TURP permits")
+    logger.info("Querying AMANDA for TURP/EX permits")
+    data = get_amanda_data(amanda_query)
+    logger.info(f"Downloaded {len(data)} potential closures.")
 
-    # Excavation (EX) permits:
-    logger.info("Querying AMANDA for EX permits")
-    data += get_amanda_data(excavation_permits)
-    # logger.info(f"Downloaded {len(closures['FOLDERRSN'].unique())} EX permits")
-
-    tracked_closures = [c["amanda_closure"] for c in amanda_closure_mapping]
     segment_closures = {}
     for rec in data:
         if rec["FOLDERRSN"] == 12732653:
             print("here")
-        if rec["CLOSURE_TYPE"] not in tracked_closures:
-            continue
         direction = rec["DIRECTION"]
         if direction is None:
             direction = "No Direction"
@@ -331,12 +320,13 @@ def main(local_file=None):
                 if "Closure : Does this result in a full directional closure?" in closures:
                     direction = closures["Closure : Does this result in a full directional closure?"]
                     closed_dir = next(iter(direction))
-                    wz.add_closure(
-                        segment_id,
-                        veh_impact="all-lanes-closed",
-                        segment_info=directions_details[closed_dir],
-                        direction=closed_dir,
-                    )
+                    if closed_dir != "both directions":
+                        wz.add_closure(
+                            segment_id,
+                            veh_impact="all-lanes-closed",
+                            segment_info=directions_details[closed_dir],
+                            direction=closed_dir,
+                        )
                 if "Traffic Lane : Dimensions" in closures or "Open Cuts : Street" in closures:
                     directions_affected = set()
                     if "Traffic Lane : Dimensions" in closures:

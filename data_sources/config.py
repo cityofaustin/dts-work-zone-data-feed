@@ -1,28 +1,4 @@
 """
-Mapping AMANDA closure types to WZDX vehicle impact types.
-Note that this list is prioritized so the top value will be checked first and so on.
-"""
-
-amanda_closure_mapping = [
-    {
-        "amanda_closure": "Closure : Full Road",
-        "vehicle_impact": "all-lanes-closed",
-    },
-    {
-        "amanda_closure": "Closure : Does this result in a full directional closure?",
-        "vehicle_impact": "all-lanes-closed",
-    },
-    {
-        "amanda_closure": "Traffic Lane : Dimensions",
-        "vehicle_impact": "some-lanes-closed",
-    },
-    {
-        "amanda_closure": "Open Cuts : Street",
-        "vehicle_impact": "some-lanes-closed",
-    },
-]
-
-"""
 Mapping AMANDA work zone types to WZDX work zone types
 """
 
@@ -33,199 +9,64 @@ work_zone_type_mapping = {
 }
 
 """
-Temporary use of right of way (TURP) permits query. Gets the road closure info from the freeform tab (FOLDERFREEFORM),
+Get permits for Temporary use of right of way (TURP) and Excavation (EX) permits. 
+Gets the road closure info from the freeform tab (FOLDERFREEFORM),
 along with permit details stored in FOLDERINFO and FOLDER. Ignores emergency permits, secondary permits and those
 created prior to 2018. Only retrieves active permits.
 
 Closure types:
 - 'Traffic Lane : Dimensions'
 - 'Closure : Full Road'
-- 'Closure : Alley',
-- 'Closure : Sidewalk'
-- 'Parking Lane : Dimensions'
+- 'Closure : Does this result in a full directional closure?'
 """
 
-turp_query = """
-    SELECT f.FOLDERRSN,
-           f.FOLDERTYPE,
-           f.SUBCODE,
-           f.WORKCODE,
-           f.FOLDERNAME,
-           f.INDATE,
-           f.ISSUEDATE,
-           f.FOLDERDESCRIPTION,
-           f.FOLDERCONDITION,
-           f.CUSTOMFOLDERNUMBER,
-           TO_CHAR(fi.START_DATE, 'YYYY-MM-DD HH24:MI')           AS START_DATE,
-           TO_CHAR(fi.END_DATE, 'YYYY-MM-DD HH24:MI')             AS END_DATE,
-           TO_CHAR(fi.EXTENSION_START_DATE, 'YYYY-MM-DD HH24:MI') AS EXTENSION_START_DATE,
-           TO_CHAR(fi.EXTENSION_END_DATE, 'YYYY-MM-DD HH24:MI')   AS EXTENSION_END_DATE,
-           fi.WORK_ZONE_TYPE,
-           ff.LOCATION_NAME,
-           ff.CLOSURE_TYPE,
-           ff.SEGMENT_ID,
-           ff.LENGTH,
-           ff.WIDTH,
-           ff.NUM_LANES,
-           ff.DIRECTION
-    FROM folder f
-             LEFT OUTER JOIN (SELECT FOLDERRSN,
-                                     MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 75980 THEN
-                                                     INFOVALUEDATETIME
-                                                 END) AS START_DATE,
-                                     MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 75985 THEN
-                                                     INFOVALUEDATETIME
-                                                 END) AS end_date,
-                                     MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 75993 THEN
-                                                     INFOVALUEDATETIME
-                                                 END) AS extension_start_date,
-                                     MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 75994 THEN
-                                                     INFOVALUEDATETIME
-                                                 END) AS extension_end_date,
-                                     MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 72101 THEN
-                                                     INFOVALUE
-                                                 END) AS secondary_permit,
-                                    MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 79490 THEN
-                                                     INFOVALUE
-                                                 END) AS emergency_permit,
-                                    MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 50395 THEN
-                                                     INFOVALUE
-                                                 END) AS WORK_ZONE_TYPE
-                              FROM FOLDERINFO
-                              GROUP BY FOLDERRSN) fi ON f.FOLDERRSN = fi.FOLDERRSN
-             LEFT OUTER JOIN (SELECT FOLDERRSN,
-                                     C01 AS location_name,
-                                     C02 AS closure_type,
-                                     C11 AS direction,
-                                     N01 AS segment_id,
-                                     N02 AS length,
-                                     N03 AS width,
-                                     N04 AS num_lanes
-                              FROM FOLDERFREEFORM
-                              WHERE FREEFORMCODE in (1010, 1015)
-                                AND C02 in ('Traffic Lane : Dimensions', 'Closure : Full Road', 'Closure : Alley',
-                                            'Closure : Sidewalk', 'Parking Lane : Dimensions', 'Closure : Does this result in a full directional closure?') and (C03 = 'Yes' OR C03 IS NULL))
-                                ff
-                             ON ff.FOLDERRSN = f.FOLDERRSN
-    WHERE f.FOLDERTYPE = 'RW' AND f.SUBCODE = 50500                            -- Temporary use of ROW permits (TURPs)
-      AND f.STATUSCODE = 50010                           -- active permits
-      AND f.INDATE > TO_DATE('2017-12-31', 'yyyy-mm-dd') -- this filters out old 'LA' permits
-      AND ff.segment_id IS NOT NULL
-      AND fi.secondary_permit = 'No'
-      AND fi.emergency_permit = 'No'
+amanda_query = """
+SELECT f.FOLDERRSN,
+       f.FOLDERTYPE,
+       f.SUBCODE,
+       f.WORKCODE,
+       f.FOLDERNAME,
+       f.INDATE,
+       f.ISSUEDATE,
+       f.FOLDERDESCRIPTION,
+       f.FOLDERCONDITION,
+       f.CUSTOMFOLDERNUMBER,
+       TO_CHAR(coa_folder.f_get_info_date(f.folderrsn, 76110), 'YYYY-MM-DD HH24:MI') AS START_DATE,
+       TO_CHAR(coa_folder.f_get_info_date(f.folderrsn, 76115), 'YYYY-MM-DD HH24:MI') AS END_DATE,
+       TO_CHAR(coa_folder.f_get_info_date(f.folderrsn, 75993), 'YYYY-MM-DD HH24:MI') AS EXTENSION_START_DATE,
+       TO_CHAR(coa_folder.f_get_info_date(f.folderrsn, 75994), 'YYYY-MM-DD HH24:MI') AS EXTENSION_END_DATE,
+       coa_folder.f_get_info_string(f.folderrsn, 50395) AS WORK_ZONE_TYPE,
+       ff.LOCATION_NAME,
+       ff.CLOSURE_TYPE,
+       ff.SEGMENT_ID,
+       ff.LENGTH,
+       ff.WIDTH,
+       ff.NUM_LANES,
+       ff.DIRECTION
+FROM folder f
+       LEFT OUTER JOIN (SELECT FOLDERRSN,
+                               C01 AS location_name,
+                               C02 AS closure_type,
+                               C11 AS direction,
+                               N01 AS segment_id,
+                               N02 AS length,
+                               N03 AS width,
+                               N04 AS num_lanes
+                        FROM FOLDERFREEFORM
+                        WHERE FREEFORMCODE IN (1010, 1015)
+                          AND (
+                          (C02 = 'Traffic Lane : Dimensions' AND (C03 = 'Yes' OR C03 IS NULL))
+                            OR
+                          (C02 IN ('Closure : Full Road',
+                                   'Closure : Does this result in a full directional closure?')
+                            AND C03 = 'Yes')
+                          )) ff
+                       ON ff.FOLDERRSN = f.FOLDERRSN
+WHERE ((f.FOLDERTYPE = 'EX')
+  OR (f.FOLDERTYPE = 'RW' AND f.SUBCODE = 50500)) -- EX  or RW TURP permits only
+  AND f.STATUSCODE = 50010                        -- active permits
+  AND f.INDATE > TO_DATE('2017-12-31', 'yyyy-mm-dd')
+  AND ff.segment_id IS NOT NULL
+  AND coa_folder.f_get_info_string(f.folderrsn, 72101) = 'No'
+  AND coa_folder.f_get_info_string(f.folderrsn, 79490) = 'No'
 """
-
-
-"""
-Excavation permits query. Gets the road closure info from the freeform tab (FOLDERFREEFORM), along with permit details stored
-in FOLDERINFO and FOLDER. Ignores emergency permits, secondary permits and those created prior to 2018. Only retrives active
-permits.
-
-Closure types:
-- 'Traffic Lane : Dimensions'
-- 'Closure : Full Road'
-- 'Closure : Alley',
-- 'Closure : Sidewalk'
-- 'Parking Lane : Dimensions'
-- 'Open Cuts : Street' 
-
-'Open Cuts : Street' is treated as a partial road closure.
-"""
-excavation_permits = """
-    SELECT f.FOLDERRSN,
-           f.FOLDERTYPE,
-           f.SUBCODE,
-           f.WORKCODE,
-           f.FOLDERNAME,
-           f.INDATE,
-           f.ISSUEDATE,
-           f.FOLDERDESCRIPTION,
-           f.FOLDERCONDITION,
-           f.CUSTOMFOLDERNUMBER,
-           TO_CHAR(fi.START_DATE, 'YYYY-MM-DD HH24:MI')           AS START_DATE,
-           TO_CHAR(fi.END_DATE, 'YYYY-MM-DD HH24:MI')             AS END_DATE,
-           TO_CHAR(fi.EXTENSION_START_DATE, 'YYYY-MM-DD HH24:MI') AS EXTENSION_START_DATE,
-           TO_CHAR(fi.EXTENSION_END_DATE, 'YYYY-MM-DD HH24:MI')   AS EXTENSION_END_DATE,
-           fi.WORK_ZONE_TYPE,
-           ff.LOCATION_NAME,
-           ff.CLOSURE_TYPE,
-           ff.SEGMENT_ID,
-           ff.LENGTH,
-           ff.WIDTH,
-           ff.NUM_LANES,
-           ff.DIRECTION
-    FROM folder f
-             LEFT OUTER JOIN (SELECT FOLDERRSN,
-                                     MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 76110 THEN
-                                                     INFOVALUEDATETIME
-                                                 END) AS START_DATE,
-                                     MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 76115 THEN
-                                                     INFOVALUEDATETIME
-                                                 END) AS end_date,
-                                     MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 75993 THEN
-                                                     INFOVALUEDATETIME
-                                                 END) AS extension_start_date,
-                                     MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 75994 THEN
-                                                     INFOVALUEDATETIME
-                                                 END) AS extension_end_date,
-                                     MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 72101 THEN
-                                                     INFOVALUE
-                                                 END) AS secondary_permit,
-                                    MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 79490 THEN
-                                                     INFOVALUE
-                                                 END) AS emergency_permit,
-                                    MAX(
-                                             CASE
-                                                 WHEN INFOCODE = 50395 THEN
-                                                     INFOVALUE
-                                                 END) AS WORK_ZONE_TYPE
-    
-                              FROM FOLDERINFO
-                              GROUP BY FOLDERRSN) fi ON f.FOLDERRSN = fi.FOLDERRSN
-             LEFT OUTER JOIN (SELECT FOLDERRSN,
-                                     C01 AS location_name,
-                                     C02 AS closure_type,
-                                     C11 as direction,
-                                     N01 AS segment_id,
-                                     N02 AS length,
-                                     N03 AS width,
-                                     N04 AS num_lanes
-                              FROM FOLDERFREEFORM
-                              WHERE FREEFORMCODE in (1010, 1015)
-                                AND C02 in ('Traffic Lane : Dimensions', 'Closure : Full Road', 'Closure : Alley',
-                                            'Closure : Sidewalk', 'Parking Lane : Dimensions', 'Open Cuts : Street', 'Closure : Does this result in a full directional closure?') and (C03 = 'Yes' OR C03 IS NULL))
-                                ff
-                             ON ff.FOLDERRSN = f.FOLDERRSN
-    WHERE f.FOLDERTYPE = 'EX'                            -- EX permits only
-      AND f.STATUSCODE = 50010                           -- active permits
-      AND f.INDATE > TO_DATE('2017-12-31', 'yyyy-mm-dd') 
-      AND ff.segment_id IS NOT NULL
-      AND fi.secondary_permit = 'No'
-      AND fi.emergency_permit = 'No'
-    """
