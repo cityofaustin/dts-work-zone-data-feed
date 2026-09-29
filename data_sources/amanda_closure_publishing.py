@@ -320,7 +320,7 @@ def main(local_file=None):
                 if "Closure : Does this result in a full directional closure?" in closures:
                     direction = closures["Closure : Does this result in a full directional closure?"]
                     closed_dir = next(iter(direction))
-                    if closed_dir != "both directions":
+                    if closed_dir != "both directions" and closed_dir != "no direction":
                         wz.add_closure(
                             segment_id,
                             veh_impact="all-lanes-closed",

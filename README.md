@@ -33,12 +33,12 @@ feed through the `worker_presence` object.
 
 ## Validation
 
-The `schema_validation.py` script will check a small subset of work zones in local copy of work zone datafeed's geojson against the schema.
+The `schema_validation.py` script will check a local copy of work zone datafeed's geojson against the schema.
 
 To validate:
 1. Run the feed, with the `local-file` argument: `python data_sources/amanda_closure_publishing.py --local-file wzdx_output.geojson`
 2. Then run the validator `python validation/schema_validation.py`
-3. You should get `✅ data sample passes schema validation` or an error message if something is wrong.
+3. You should get `✅ data passes schema validation` or an error message if something is wrong.
 
 ***
 

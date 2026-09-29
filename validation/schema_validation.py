@@ -1,27 +1,35 @@
 import json
-import random
-from jsonschema import validate
+import sys
+import time
+import jsonschema_rs
 
-# ---- Load main schema ----
+MAX_ERRORS_SHOWN = 10
+
+# ---- Load schema + data ----
 with open("validation/WorkZoneFeed_schema.json") as f:
     schema = json.load(f)
-# ---- Load data ----
 with open("wzdx_output.geojson") as f:
     data = json.load(f)
 
-# ---- Sampling Logic ----
 features = data.get("features", [])
-sample_size = 25  # adjust if desired
+print(f"🔍 Validating all {len(features)} feature(s)\n")
 
-if sample_size > len(features):
-    raise ValueError(f"Sample size {sample_size} exceeds total features {len(features)}")
-
-sampled = random.sample(features, sample_size)
-data["features"] = sampled
-
-print(f"🔍 Validating a random sample of {sample_size} feature(s) out of {len(features)} total\n")
+# ---- Build validator once (picks the draft from the schema's $schema) ----
+validator = jsonschema_rs.validator_for(schema)
 
 # ---- Validate ----
-validate(instance=data, schema=schema)
+start = time.perf_counter()
+errors = list(validator.iter_errors(data))
+elapsed = time.perf_counter() - start
 
-print("\n✅ data sample passes schema validation")
+if not errors:
+    print(f"✅ data passes schema validation ({elapsed:.2f}s)")
+    sys.exit(0)
+
+print(f"❌ {len(errors)} validation error(s) found ({elapsed:.2f}s)\n")
+for e in errors[:MAX_ERRORS_SHOWN]:
+    path = "/".join(str(p) for p in e.instance_path)
+    print(f"- at {path or '<root>'}: {e.message[:200]}")
+if len(errors) > MAX_ERRORS_SHOWN:
+    print(f"... and {len(errors) - MAX_ERRORS_SHOWN} more")
+sys.exit(1)
