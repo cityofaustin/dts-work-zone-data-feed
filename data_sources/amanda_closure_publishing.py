@@ -242,57 +242,46 @@ def main(local_file=None):
         else:
             worker_presence = False
 
-        permit_type = details["FOLDERTYPE"]
-        folderdesc = details["FOLDERDESCRIPTION"]
-        foldername = details["FOLDERNAME"]
-        subtype = details["SUBCODE"]
-        workcode = details["WORKCODE"]
-        start_date = details["start_date_dt"]
-        end_date = details["end_date_dt"]
-        work_zone_type = details["WORK_ZONE_TYPE"]
-        start_verified = details["is_start_date_verified"]
-        end_verified = details["is_end_date_verified"]
-
         # Naming and description logic
-        if permit_type == "RW":
+        if details["FOLDERTYPE"] == "RW":
             # Filtering out details from franchise utilities.
-            if subtype == 50500 and workcode in (50570, 50575, 50580):
+            if details["SUBCODE"] == 50500 and details["WORKCODE"] in (50570, 50575, 50580):
                 description = "Temporary use of Right of Way Permit has been issued for this location."
                 name = "WorkZone Event"
             else:
-                description = f"Temporary use of Right of Way Permit has been issued for this location. \n Details: {folderdesc}"
-                name = foldername
+                description = f"Temporary use of Right of Way Permit has been issued for this location. \n Details: {details['FOLDERDESCRIPTION']}"
+                name = details["FOLDERNAME"]
             data_source_id = amanda_turp_id
-        elif permit_type == "EX":
+        elif details["FOLDERTYPE"] == "EX":
             # Filtering out details from franchise utilities.
-            if subtype == 50685:
+            if details["SUBCODE"] == 50685:
                 description = "Excavation Permit has been issued for this location."
                 name = "WorkZone Event"
             else:
-                description = f"Excavation Permit has been issued for this location. \n Details: {folderdesc}"
-                name = foldername
+                description = f"Excavation Permit has been issued for this location. \n Details: {details['FOLDERDESCRIPTION']}"
+                name = details["FOLDERNAME"]
 
             data_source_id = amanda_ex_id
 
-        if work_zone_type:
-            work_zone_type = work_zone_type_mapping.get(work_zone_type.lower())
+        if details["WORK_ZONE_TYPE"]:
+            work_zone_type = work_zone_type_mapping.get(details["WORK_ZONE_TYPE"].lower())
         else:
             work_zone_type = "static"
 
         # Checking if the closure is some time in the future, if it's not we do not publish it to the feed.
         # Adding one hour to the end time to help inform consumers that the work zone has officially ended.
-        if end_date + datetime.timedelta(hours=1) > current_time:
+        if details["end_date_dt"] + datetime.timedelta(hours=1) > current_time:
             wz = AmandaWorkZone(
                 data_source_id=data_source_id,
                 name=name,
                 folderrsn=permit_id,
                 description=description,
-                start_date=start_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
-                end_date=end_date.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
+                start_date=details["start_date_dt"].tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
+                end_date=details["end_date_dt"].tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
                 work_zone_type=work_zone_type,
                 workers_present=worker_presence,
-                start_date_verified=start_verified,
-                end_date_verified=end_verified,
+                start_date_verified=details["is_start_date_verified"],
+                end_date_verified=details["is_end_date_verified"],
             )
             # Closure type logic
             # This is how we convert AMANDA road closures into workzone closure types
