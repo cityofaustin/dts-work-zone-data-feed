@@ -56,13 +56,18 @@ def get_start_end_date(row):
     row = convert_date_to_datetime(row)
     return row
 
+
 def convert_date_to_datetime(row: dict, tz="US/Central") -> dict:
     """Parse START_DATE and END_DATE and localize to US/Central, in place."""
     parsed = pd.to_datetime(row.get("START_DATE"), errors="coerce")
-    row["start_date_dt"] = None if pd.isna(parsed) else parsed.tz_localize(pytz.timezone(tz))
+    row["start_date_dt"] = (
+        None if pd.isna(parsed) else parsed.tz_localize(pytz.timezone(tz))
+    )
 
     parsed = pd.to_datetime(row.get("END_DATE"), errors="coerce")
-    row["end_date_dt"] = None if pd.isna(parsed) else parsed.tz_localize(pytz.timezone(tz))
+    row["end_date_dt"] = (
+        None if pd.isna(parsed) else parsed.tz_localize(pytz.timezone(tz))
+    )
     return row
 
 
@@ -161,19 +166,35 @@ def main(local_file=None):
         if direction is None:
             direction = "No Direction"
         if rec["FOLDERRSN"] not in segment_closures:
-            segment_closures[rec["FOLDERRSN"]] = {rec["SEGMENT_ID"]: {rec["CLOSURE_TYPE"]: {direction.lower()}}}
+            segment_closures[rec["FOLDERRSN"]] = {
+                rec["SEGMENT_ID"]: {rec["CLOSURE_TYPE"]: {direction.lower()}}
+            }
         elif rec["SEGMENT_ID"] not in segment_closures[rec["FOLDERRSN"]]:
-            segment_closures[rec["FOLDERRSN"]][rec["SEGMENT_ID"]] = {rec["CLOSURE_TYPE"]: {direction.lower()}}
+            segment_closures[rec["FOLDERRSN"]][rec["SEGMENT_ID"]] = {
+                rec["CLOSURE_TYPE"]: {direction.lower()}
+            }
         elif direction not in segment_closures[rec["FOLDERRSN"]][rec["SEGMENT_ID"]]:
-            segment_closures[rec["FOLDERRSN"]][rec["SEGMENT_ID"]][rec["CLOSURE_TYPE"]] = {direction.lower()}
+            segment_closures[rec["FOLDERRSN"]][rec["SEGMENT_ID"]][
+                rec["CLOSURE_TYPE"]
+            ] = {direction.lower()}
         else:
-            segment_closures[rec["FOLDERRSN"]][rec["SEGMENT_ID"]][rec["CLOSURE_TYPE"]].add(direction.lower())
-
+            segment_closures[rec["FOLDERRSN"]][rec["SEGMENT_ID"]][
+                rec["CLOSURE_TYPE"]
+            ].add(direction.lower())
 
     permit_details = {}
-    excluded_keys = ["CLOSURE_TYPE","SEGMENT_ID", "LENGTH", "WIDTH", "NUM_LANES", "DIRECTION"]
+    excluded_keys = [
+        "CLOSURE_TYPE",
+        "SEGMENT_ID",
+        "LENGTH",
+        "WIDTH",
+        "NUM_LANES",
+        "DIRECTION",
+    ]
     for rec in data:
-        permit_details[rec["FOLDERRSN"]] = {k: v for k, v in rec.items() if k not in excluded_keys}
+        permit_details[rec["FOLDERRSN"]] = {
+            k: v for k, v in rec.items() if k not in excluded_keys
+        }
 
     # Get activated Work Zones from Coordinate
     logger.info("Retrieving activated work zones from Coordinate")
@@ -206,9 +227,13 @@ def main(local_file=None):
     segment_details = {}
     for record in segment_info:
         if record["segment_id"] not in segment_details:
-            segment_details[record["segment_id"]] = {record["bearing_dir"].lower(): record}
+            segment_details[record["segment_id"]] = {
+                record["bearing_dir"].lower(): record
+            }
         else:
-            segment_details[record["segment_id"]][record["bearing_dir"].lower()] = record
+            segment_details[record["segment_id"]][
+                record["bearing_dir"].lower()
+            ] = record
 
     # Generating UUIDs for our data sources
     amanda_turp_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "COA_AMANDA_TURP"))
@@ -224,7 +249,10 @@ def main(local_file=None):
     # Ignores permits with invalid dates, this can happen as the extension date is just a string input with no form validation.
     rsns_to_remove = []
     for rsn in permit_details.keys():
-        if not permit_details[rsn]["start_date_dt"] or not permit_details[rsn]["end_date_dt"]:
+        if (
+            not permit_details[rsn]["start_date_dt"]
+            or not permit_details[rsn]["end_date_dt"]
+        ):
             rsns_to_remove.append(rsn)
     for rsn in rsns_to_remove:
         permit_details.pop(rsn, None)
@@ -245,7 +273,11 @@ def main(local_file=None):
         # Naming and description logic
         if details["FOLDERTYPE"] == "RW":
             # Filtering out details from franchise utilities.
-            if details["SUBCODE"] == 50500 and details["WORKCODE"] in (50570, 50575, 50580):
+            if details["SUBCODE"] == 50500 and details["WORKCODE"] in (
+                50570,
+                50575,
+                50580,
+            ):
                 description = "Temporary use of Right of Way Permit has been issued for this location."
                 name = "WorkZone Event"
             else:
@@ -264,7 +296,9 @@ def main(local_file=None):
             data_source_id = amanda_ex_id
 
         if details["WORK_ZONE_TYPE"]:
-            work_zone_type = work_zone_type_mapping.get(details["WORK_ZONE_TYPE"].lower())
+            work_zone_type = work_zone_type_mapping.get(
+                details["WORK_ZONE_TYPE"].lower()
+            )
         else:
             work_zone_type = "static"
 
@@ -276,8 +310,12 @@ def main(local_file=None):
                 name=name,
                 folderrsn=permit_id,
                 description=description,
-                start_date=details["start_date_dt"].tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
-                end_date=details["end_date_dt"].tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
+                start_date=details["start_date_dt"]
+                .tz_convert("UTC")
+                .strftime("%Y-%m-%dT%H:%M:%SZ"),
+                end_date=details["end_date_dt"]
+                .tz_convert("UTC")
+                .strftime("%Y-%m-%dT%H:%M:%SZ"),
                 work_zone_type=work_zone_type,
                 workers_present=worker_presence,
                 start_date_verified=details["is_start_date_verified"],
@@ -293,7 +331,9 @@ def main(local_file=None):
                     )
                     continue
                 directions_details = segment_details[str(segment_id)]
-                possible_directions = [k for k in directions_details if k != "centerline"]
+                possible_directions = [
+                    k for k in directions_details if k != "centerline"
+                ]
                 # 1. First thing to check is if there is a full directional of all directions.
                 if "Closure : Full Road" in closures:
                     # Close all directions here
@@ -306,8 +346,13 @@ def main(local_file=None):
                         )
                     continue
                 closed_dir = None
-                if "Closure : Does this result in a full directional closure?" in closures:
-                    direction = closures["Closure : Does this result in a full directional closure?"]
+                if (
+                    "Closure : Does this result in a full directional closure?"
+                    in closures
+                ):
+                    direction = closures[
+                        "Closure : Does this result in a full directional closure?"
+                    ]
                     closed_dir = next(iter(direction))
                     if closed_dir != "both directions" and closed_dir != "no direction":
                         wz.add_closure(
@@ -316,12 +361,19 @@ def main(local_file=None):
                             segment_info=directions_details[closed_dir],
                             direction=closed_dir,
                         )
-                if "Traffic Lane : Dimensions" in closures or "Open Cuts : Street" in closures:
+                if (
+                    "Traffic Lane : Dimensions" in closures
+                    or "Open Cuts : Street" in closures
+                ):
                     directions_affected = set()
                     if "Traffic Lane : Dimensions" in closures:
-                        directions_affected = directions_affected | closures["Traffic Lane : Dimensions"]
+                        directions_affected = (
+                            directions_affected | closures["Traffic Lane : Dimensions"]
+                        )
                     if "Open Cuts : Street" in closures:
-                        directions_affected = directions_affected | closures["Open Cuts : Street"]
+                        directions_affected = (
+                            directions_affected | closures["Open Cuts : Street"]
+                        )
 
                     if "both directions" in directions_affected:
                         # add a partial closure in both directions, unless it is already closed by the earlier step
@@ -347,7 +399,11 @@ def main(local_file=None):
                                     direction=direction,
                                 )
                                 directional_partial_closure_published = True
-                    if "no direction" in directions_affected and not directional_partial_closure_published and not closed_dir:
+                    if (
+                        "no direction" in directions_affected
+                        and not directional_partial_closure_published
+                        and not closed_dir
+                    ):
                         # If we got no idea what to do just make an unknown partial closure.
                         # Check if anything as been closed, if not then do it.
                         wz.add_closure(
@@ -374,10 +430,16 @@ def main(local_file=None):
 
     # Stitching everything together
     output = {"feed_info": feed_info, "type": "FeatureCollection", "features": features}
-    output_critical = {"feed_info": feed_info, "type": "FeatureCollection", "features": critical_features}
+    output_critical = {
+        "feed_info": feed_info,
+        "type": "FeatureCollection",
+        "features": critical_features,
+    }
 
     if local_file:
-        logger.info(f"Writing output to local file: {local_file}.geojson and {local_file}.csv")
+        logger.info(
+            f"Writing output to local file: {local_file}.geojson and {local_file}.csv"
+        )
         with open(f"{local_file}.geojson", "w") as f:
             json.dump(output, f, indent=2)
         # for flat exporting to socrata:
@@ -394,8 +456,12 @@ def main(local_file=None):
         files = {"file": ("wzdx_atx.geojson", json.dumps(output, indent=2))}
         response = soda_client.replace_non_data_file(FEED_DATASET, {}, files)
         logger.info(response)
-        files_critical = {"file": ("wzdx_atx_critical.geojson", json.dumps(output_critical, indent=2))}
-        response = soda_client.replace_non_data_file(CRITICAL_DATASET, {}, files_critical)
+        files_critical = {
+            "file": ("wzdx_atx_critical.geojson", json.dumps(output_critical, indent=2))
+        }
+        response = soda_client.replace_non_data_file(
+            CRITICAL_DATASET, {}, files_critical
+        )
         logger.info(response)
 
         # for flat exporting to socrata:
