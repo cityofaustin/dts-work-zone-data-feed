@@ -67,6 +67,6 @@ WHERE ((f.FOLDERTYPE = 'EX')
   AND f.STATUSCODE = 50010                        -- active permits
   AND f.INDATE > TO_DATE('2017-12-31', 'yyyy-mm-dd')
   AND ff.segment_id IS NOT NULL
-  AND coa_folder.f_get_info_string(f.folderrsn, 72101) = 'No'
-  AND coa_folder.f_get_info_string(f.folderrsn, 79490) = 'No'
+  AND coa_folder.f_get_info_string(f.folderrsn, 72101) = 'No'   -- No secondary permits
+  AND coa_folder.f_get_info_string(f.folderrsn, 79490) = 'No'   -- No emergency permits
 """
