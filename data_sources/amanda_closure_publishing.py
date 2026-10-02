@@ -160,8 +160,6 @@ def main(local_file=None):
 
     segment_closures = {}
     for rec in data:
-        if rec["FOLDERRSN"] == 12732653:
-            print("here")
         direction = rec["DIRECTION"]
         if direction is None:
             direction = "No Direction"
