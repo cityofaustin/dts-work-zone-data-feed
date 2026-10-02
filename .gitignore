@@ -5,3 +5,4 @@
 *.geojson
 env_file
 .env
+.env.local

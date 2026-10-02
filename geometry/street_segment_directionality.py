@@ -76,6 +76,7 @@ def unwrap_multiline(geom, on_discontinuous="warn"):
 
     return geom
 
+
 def tagging_critical_corridor_segments(df):
     critical = get_critical_corridor_segments()
     df = df.to_crs(2277)
@@ -94,9 +95,12 @@ def get_critical_corridor_segments():
     # Buffer 100 ft
     critical["geometry"] = critical.buffer(100)
     # merging them all into one shape
-    critical = critical.union_all() if hasattr(critical, "union_all") else critical.unary_union
+    critical = (
+        critical.union_all() if hasattr(critical, "union_all") else critical.unary_union
+    )
 
     return critical
+
 
 def get_token(username: str, password: str) -> str:
     """Generate a short-lived ArcGIS Online token."""
@@ -118,11 +122,14 @@ def get_token(username: str, password: str) -> str:
         raise RuntimeError(f"Token generation failed: {data}")
     return data["token"]
 
+
 def query_all_features(layer_url: str, token: str) -> list[dict]:
     """Page through a layer's features (handles maxRecordCount) and return GeoJSON features."""
     features = []
     offset = 0
-    page_size = 1000  # will be clipped to server's actual max automatically by most services
+    page_size = (
+        1000  # will be clipped to server's actual max automatically by most services
+    )
 
     while True:
         params = {
@@ -148,12 +155,16 @@ def query_all_features(layer_url: str, token: str) -> list[dict]:
         features.extend(page_features)
 
         # Stop if server says there are no more, or if we got fewer than requested
-        if not data.get("properties", {}).get("exceededTransferLimit", False) and len(page_features) < page_size:
+        if (
+            not data.get("properties", {}).get("exceededTransferLimit", False)
+            and len(page_features) < page_size
+        ):
             break
 
         offset += len(page_features)
 
     return features
+
 
 def bearing(line):
     """
@@ -284,7 +295,7 @@ def main():
         SO_TOKEN,
         username=SO_USER,
         password=SO_PASS,
-        timeout=10*60,
+        timeout=10 * 60,
     )
 
     # Downloading street segments from socrata

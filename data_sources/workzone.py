@@ -102,14 +102,20 @@ class WorkZone:
                     place_df = place_df[place_df["street_place_id"] == place]
                     # We need more than 1 segment to reduce, and we need all of them to be the same direction
                     # AND for all of them to be either critical or non-critical.
-                    if len(place_df) > 1 and place_df["direction"].nunique() == 1 and place_df["critical_corridor"].nunique() == 1:
+                    if (
+                        len(place_df) > 1
+                        and place_df["direction"].nunique() == 1
+                        and place_df["critical_corridor"].nunique() == 1
+                    ):
                         # Attempt to merge the list of line geometries.
                         merged_segments = linemerge(list(place_df["geometry"]))
 
                         # If a single linestring is returned, we know we have successfully combined all segments
                         if merged_segments.geom_type == "LineString":
                             edited_segment = dict(place_df.iloc[0])
-                            edited_segment["critical_corridor"] = bool(edited_segment["critical_corridor"])
+                            edited_segment["critical_corridor"] = bool(
+                                edited_segment["critical_corridor"]
+                            )
                             edited_segment["geometry"] = merged_segments
                             reduced_segments.append(edited_segment)
 
@@ -117,7 +123,9 @@ class WorkZone:
                         elif merged_segments.geom_type == "MultiLineString":
                             records = place_df.to_dict("records")
                             for record in records:
-                                record["critical_corridor"] = bool(record["critical_corridor"])
+                                record["critical_corridor"] = bool(
+                                    record["critical_corridor"]
+                                )
                             reduced_segments += records
                     else:
                         reduced_segments += place_df.to_dict("records")
