@@ -352,25 +352,18 @@ def main(local_file=None):
                         "Closure : Does this result in a full directional closure?"
                     ]
                     closed_dir = next(iter(direction))
-                    if closed_dir != "both directions" and closed_dir != "no direction":
+                    if closed_dir in possible_directions:
                         wz.add_closure(
                             segment_id,
                             veh_impact="all-lanes-closed",
                             segment_info=directions_details[closed_dir],
                             direction=closed_dir,
                         )
-                if (
-                    "Traffic Lane : Dimensions" in closures
-                    or "Open Cuts : Street" in closures
-                ):
+                if "Traffic Lane : Dimensions" in closures:
                     directions_affected = set()
                     if "Traffic Lane : Dimensions" in closures:
                         directions_affected = (
                             directions_affected | closures["Traffic Lane : Dimensions"]
-                        )
-                    if "Open Cuts : Street" in closures:
-                        directions_affected = (
-                            directions_affected | closures["Open Cuts : Street"]
                         )
 
                     if "both directions" in directions_affected:
